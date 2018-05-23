@@ -3,19 +3,28 @@
 #include <freerdp/settings.h>
 #include <winpr/cmdline.h>
 #include <winpr/spec.h>
+#include <winpr/strlst.h>
 
-#define TESTCASE(argv, ret_val) TESTCASE_impl(#argv, argv, ARRAYSIZE(argv), ret_val)
-#define TESTCASE_SUCCESS(argv) TESTCASE_impl(#argv, argv, ARRAYSIZE(argv), 0)
-static INLINE BOOL TESTCASE_impl(const char* name, char** argv, size_t argc,
-                                 int expected_return)
+
+static INLINE BOOL testcase(const char* name, char** argv, size_t argc,
+                            int expected_return)
 {
 	int status;
 	rdpSettings* settings = freerdp_settings_new(0);
-	printf("Running test %s\n", name);
+	int i;
+	printf("Running test:");
+
+	for (i = 0; argv[i]; i ++)
+	{
+		printf(" %s", argv[i]);
+	}
+
+	printf("\n");
 
 	if (!settings)
 	{
 		fprintf(stderr, "Test %s could not allocate settings!\n", name);
+		fflush(stderr);
 		return FALSE;
 	}
 
@@ -25,6 +34,8 @@ static INLINE BOOL TESTCASE_impl(const char* name, char** argv, size_t argc,
 	if (status != expected_return)
 	{
 		fprintf(stderr, "Test %s failed!\n", name);
+		fprintf(stderr, "Expected status %d,  got status %d\n", expected_return, status);
+		fflush(stderr);
 		return FALSE;
 	}
 
@@ -36,121 +47,184 @@ static INLINE BOOL TESTCASE_impl(const char* name, char** argv, size_t argc,
 #else
 #define DRIVE_REDIRECT_PATH "/tmp"
 #endif
+
+typedef struct
+{
+	int expected_status;
+	const char* command_line[128];
+	struct
+	{
+		int index;
+		const char*   expected_value;
+	} modified_arguments[8];
+} test;
+
+static test tests[] =
+{
+	{
+		COMMAND_LINE_STATUS_PRINT_HELP,
+		{"xfreerdp", "--help", 0},
+		{{0}}
+	},
+	{
+		COMMAND_LINE_STATUS_PRINT_HELP,
+		{"xfreerdp", "/help", 0},
+		{{0}}
+	},
+	{
+		COMMAND_LINE_STATUS_PRINT_HELP,
+		{"xfreerdp", "-help", 0},
+		{{0}}
+	},
+	{
+		COMMAND_LINE_STATUS_PRINT_VERSION,
+		{"xfreerdp", "--version", 0},
+		{{0}}
+	},
+	{
+		COMMAND_LINE_STATUS_PRINT_VERSION,
+		{"xfreerdp", "/version", 0},
+		{{0}}
+	},
+	{
+		COMMAND_LINE_STATUS_PRINT_VERSION,
+		{"xfreerdp", "-version", 0},
+		{{0}}
+	},
+	{
+		0,
+		{"xfreerdp", "test.freerdp.com", 0},
+		{{0}}
+	},
+	{
+		0,
+		{"xfreerdp", "-v", "test.freerdp.com", 0},
+		{{0}}
+	},
+	{
+		0,
+		{"xfreerdp", "--v", "test.freerdp.com", 0},
+		{{0}}
+	},
+	{
+		0,
+		{"xfreerdp", "/v:test.freerdp.com", 0},
+		{{0}}
+	},
+	{
+		0,
+		{"xfreerdp", "--plugin", "rdpsnd", "--plugin", "rdpdr", "--data", "disk:media:"DRIVE_REDIRECT_PATH, "--", "test.freerdp.com", 0},
+		{{0}}
+	},
+	{
+		0,
+		{"xfreerdp", "/sound", "/drive:media,"DRIVE_REDIRECT_PATH, "/v:test.freerdp.com", 0},
+		{{0}}
+	},
+	{
+		0,
+		{"xfreerdp", "-u", "test", "-p", "test", "test.freerdp.com", 0},
+		{{4, "****"}, {0}}
+	},
+	{
+		0,
+		{"xfreerdp", "-u", "test", "-p", "test", "-v", "test.freerdp.com", 0},
+		{{4, "****"}, {0}}
+	},
+	{
+		0,
+		{"xfreerdp", "/u:test", "/p:test", "/v:test.freerdp.com", 0},
+		{{2, "/p:****"}, {0}}
+	},
+	{
+		COMMAND_LINE_ERROR_NO_KEYWORD,
+		{"xfreerdp", "-invalid", 0},
+		{{0}}
+	},
+	{
+		COMMAND_LINE_ERROR_NO_KEYWORD,
+		{"xfreerdp", "--invalid", 0},
+		{{0}}
+	},
+	{
+		COMMAND_LINE_STATUS_PRINT,
+		{"xfreerdp", "/kbd-list", 0},
+		{{0}}
+	},
+	{
+		COMMAND_LINE_STATUS_PRINT,
+		{"xfreerdp", "/monitor-list", 0},
+		{{0}}
+	},
+	{
+		COMMAND_LINE_ERROR,
+		{"xfreerdp", "/sound", "/drive:media:"DRIVE_REDIRECT_PATH, "/v:test.freerdp.com", 0},
+		{{0}}
+	},
+	{
+		COMMAND_LINE_ERROR,
+		{"xfreerdp", "/sound", "/drive:media,/foo/bar/blabla", "/v:test.freerdp.com", 0},
+		{{0}}
+	},
+#if 0
+	{
+		COMMAND_LINE_STATUS_PRINT,
+		{"xfreerdp", "-z", "--plugin", "cliprdr", "--plugin", "rdpsnd", "--data", "alsa", "latency:100", "--", "--plugin", "rdpdr", "--data", "disk:w7share:/home/w7share", "--", "--plugin", "drdynvc", "--data", "tsmf:decoder:gstreamer", "--", "-u", "test", "host.example.com", 0},
+		{{0}}
+	},
+#endif
+};
+
+
+void check_modified_arguments(test* test, char** command_line, int* rc)
+{
+	int k;
+	const char*   expected_argument;
+
+	for (k = 0; (expected_argument = test->modified_arguments[k].expected_value); k ++)
+	{
+		int index = test->modified_arguments[k].index;
+		char* actual_argument = command_line[index];
+
+		if (0 != strcmp(actual_argument, expected_argument))
+		{
+			fprintf(stderr, "Failure: overridden argument %d is %s but it should be %s\n",
+			        index, actual_argument, expected_argument);
+			fflush(stderr);
+			* rc = -1;
+		}
+	}
+}
+
 int TestClientCmdLine(int argc, char* argv[])
 {
-	int rc = -1;
-	char* cmd1[] = {"xfreerdp", "--help"};
-	char* cmd2[] = {"xfreerdp", "/help"};
-	char* cmd3[] = {"xfreerdp", "-help"};
-	char* cmd4[] = {"xfreerdp", "--version"};
-	char* cmd5[] = {"xfreerdp", "/version"};
-	char* cmd6[] = {"xfreerdp", "-version"};
-	char* cmd7[] = {"xfreerdp", "test.freerdp.com"};
-	char* cmd8[] = {"xfreerdp", "-v", "test.freerdp.com"};
-	char* cmd9[] = {"xfreerdp", "--v", "test.freerdp.com"};
-	char* cmd10[] = {"xfreerdp", "/v:test.freerdp.com"};
-	char* cmd11[] = {"xfreerdp", "--plugin", "rdpsnd", "--plugin", "rdpdr", "--data", "disk:media:"DRIVE_REDIRECT_PATH, "--", "test.freerdp.com" };
-	char* cmd12[] = {"xfreerdp", "/sound", "/drive:media,"DRIVE_REDIRECT_PATH, "/v:test.freerdp.com" };
-	char* cmd13[] = {"xfreerdp", "-u", "test", "-p", "test", "test.freerdp.com"};
-	char* cmd14[] = {"xfreerdp", "-u", "test", "-p", "test", "-v", "test.freerdp.com"};
-	char* cmd15[] = {"xfreerdp", "/u:test", "/p:test", "/v:test.freerdp.com"};
-	char* cmd16[] = {"xfreerdp", "-invalid"};
-	char* cmd17[] = {"xfreerdp", "--invalid"};
-	char* cmd18[] = {"xfreerdp", "/kbd-list"};
-	char* cmd19[] = {"xfreerdp", "/monitor-list"};
-	char* cmd20[] = {"xfreerdp", "/sound", "/drive:media:"DRIVE_REDIRECT_PATH, "/v:test.freerdp.com" };
-	char* cmd21[] = {"xfreerdp", "/sound", "/drive:media,/foo/bar/blabla", "/v:test.freerdp.com" };
+	int rc = 0;
+	int i;
 
-	if (!TESTCASE(cmd1, COMMAND_LINE_STATUS_PRINT_HELP))
-		goto fail;
+	for (i = 0; i < sizeof(tests) / sizeof(tests[0]); i ++)
+	{
+		int failure = 0;
+		char** command_line = string_list_copy(tests[i].command_line);
 
-	if (!TESTCASE(cmd2, COMMAND_LINE_STATUS_PRINT_HELP))
-		goto fail;
+		if (!testcase(__FUNCTION__,
+		              command_line, string_list_length((const char * const*)command_line),
+		              tests[i].expected_status))
+		{
+			fprintf(stderr, "Failure parsing arguments.\n");
+			failure = 1;
+		}
 
-	if (!TESTCASE(cmd3, COMMAND_LINE_STATUS_PRINT_HELP))
-		goto fail;
+		check_modified_arguments(& tests[i], command_line, & failure);
 
-	if (!TESTCASE(cmd4, COMMAND_LINE_STATUS_PRINT_VERSION))
-		goto fail;
+		if (failure)
+		{
+			string_list_print(stdout, command_line);
+			rc = -1;
+		}
 
-	if (!TESTCASE(cmd5, COMMAND_LINE_STATUS_PRINT_VERSION))
-		goto fail;
+		string_list_free(command_line);
+	}
 
-	if (!TESTCASE(cmd6, COMMAND_LINE_STATUS_PRINT_VERSION))
-		goto fail;
-
-	if (!TESTCASE_SUCCESS(cmd7))
-		goto fail;
-
-	if (!TESTCASE_SUCCESS(cmd8))
-		goto fail;
-
-	if (!TESTCASE_SUCCESS(cmd9))
-		goto fail;
-
-	if (!TESTCASE_SUCCESS(cmd10))
-		goto fail;
-
-	if (!TESTCASE_SUCCESS(cmd11))
-		goto fail;
-
-	if (!TESTCASE_SUCCESS(cmd12))
-		goto fail;
-
-	// password gets overwritten therefore it need to be writeable
-	cmd13[4] = _strdup("test");
-	cmd14[4] = _strdup("test");
-	cmd15[2] = _strdup("/p:test");
-
-	if (!cmd13[4] || !cmd14[4] || !cmd15[2])
-		goto free_arg;
-
-	if (!TESTCASE_SUCCESS(cmd13))
-		goto free_arg;
-
-	if (memcmp(cmd13[4], "****", 4) != 0)
-		goto free_arg;
-
-	if (!TESTCASE_SUCCESS(cmd14))
-		goto free_arg;
-
-	if (memcmp(cmd14[4], "****", 4) != 0)
-		goto free_arg;
-
-	if (!TESTCASE_SUCCESS(cmd15))
-		goto free_arg;
-
-	if (memcmp(cmd15[2], "/p:****", 7) != 0)
-		goto free_arg;
-
-	if (!TESTCASE(cmd16, COMMAND_LINE_ERROR_NO_KEYWORD))
-		goto free_arg;
-
-	if (!TESTCASE(cmd17, COMMAND_LINE_ERROR_NO_KEYWORD))
-		goto free_arg;
-
-	if (!TESTCASE(cmd18, COMMAND_LINE_STATUS_PRINT))
-		goto free_arg;
-
-	if (!TESTCASE(cmd19, COMMAND_LINE_STATUS_PRINT))
-		goto free_arg;
-
-	if (!TESTCASE(cmd20, COMMAND_LINE_ERROR))
-		goto free_arg;
-
-	if (!TESTCASE(cmd21, COMMAND_LINE_ERROR))
-		goto free_arg;
-
-	rc = 0;
-free_arg:
-	free(cmd13[4]);
-	free(cmd14[4]);
-	free(cmd15[2]);
-#if 0
-	char* cmd20[] = {"-z --plugin cliprdr --plugin rdpsnd --data alsa latency:100 -- --plugin rdpdr --data disk:w7share:/home/w7share -- --plugin drdynvc --data tsmf:decoder:gstreamer -- -u test host.example.com"};
-	TESTCASE(cmd20, COMMAND_LINE_STATUS_PRINT);
-#endif
-fail:
 	return rc;
 }
 
