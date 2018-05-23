@@ -45,7 +45,7 @@
  *
  */
 
-int CommandLineParseArgumentsA(int argc, LPCSTR* argv, COMMAND_LINE_ARGUMENT_A* options,
+int CommandLineParseArgumentsA(int argc, LPSTR* argv, COMMAND_LINE_ARGUMENT_A* options,
                                DWORD flags,
                                void* context, COMMAND_LINE_PRE_FILTER_FN_A preFilter, COMMAND_LINE_POST_FILTER_FN_A postFilter)
 {
@@ -60,7 +60,7 @@ int CommandLineParseArgumentsA(int argc, LPCSTR* argv, COMMAND_LINE_ARGUMENT_A* 
 	SSIZE_T keyword_length;
 	SSIZE_T keyword_index;
 	char* separator;
-	const char* value;
+	char* value; /* not const, we want to override passwords */
 	int toggle;
 	status = 0;
 	notescaped = FALSE;
@@ -353,7 +353,7 @@ int CommandLineParseArgumentsA(int argc, LPCSTR* argv, COMMAND_LINE_ARGUMENT_A* 
 	return status;
 }
 
-int CommandLineParseArgumentsW(int argc, LPCWSTR* argv, COMMAND_LINE_ARGUMENT_W* options,
+int CommandLineParseArgumentsW(int argc, LPWSTR* argv, COMMAND_LINE_ARGUMENT_W* options,
                                DWORD flags,
                                void* context, COMMAND_LINE_PRE_FILTER_FN_W preFilter, COMMAND_LINE_POST_FILTER_FN_W postFilter)
 {
