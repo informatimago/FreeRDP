@@ -397,7 +397,7 @@ fallback:
 	return computerName;
 }
 
-static int command_line_pre_filter(MAKECERT_CONTEXT* context, int index, int argc, LPCSTR* argv)
+static int command_line_pre_filter(MAKECERT_CONTEXT* context, int index, int argc, LPSTR* argv)
 {
 	if (!context || !argv || (index < 0) || (argc < 0))
 		return -1;
