@@ -340,7 +340,6 @@ static BOOL rdpsnd_alsa_format_supported(rdpsndDevicePlugin* device, const AUDIO
 			{
 				return TRUE;
 			}
-
 			break;
 	}
 
@@ -480,7 +479,7 @@ static UINT rdpsnd_alsa_parse_addin_args(rdpsndDevicePlugin* device, ADDIN_ARGV*
 	COMMAND_LINE_ARGUMENT_A* arg;
 	rdpsndAlsaPlugin* alsa = (rdpsndAlsaPlugin*) device;
 	flags = COMMAND_LINE_SIGIL_NONE | COMMAND_LINE_SEPARATOR_COLON | COMMAND_LINE_IGN_UNKNOWN_KEYWORD;
-	status = CommandLineParseArgumentsA(args->argc, (const char**) args->argv, rdpsnd_alsa_args, flags,
+	status = CommandLineParseArgumentsA(args->argc, args->argv, rdpsnd_alsa_args, flags,
 	                                    alsa, NULL, NULL);
 
 	if (status < 0)
