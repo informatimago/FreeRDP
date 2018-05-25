@@ -427,7 +427,7 @@ static UINT audin_alsa_open(IAudinDevice* device, AudinReceive receive,
 	}
 
 	if (!(alsa->thread = CreateThread(NULL, 0,
-									  audin_alsa_thread_func, alsa, 0, NULL)))
+	                                  audin_alsa_thread_func, alsa, 0, NULL)))
 	{
 		WLog_ERR(TAG, "CreateThread failed!");
 		goto error_out;
@@ -496,7 +496,7 @@ static UINT audin_alsa_parse_addin_args(AudinALSADevice* device,
 	AudinALSADevice* alsa = (AudinALSADevice*) device;
 	flags = COMMAND_LINE_SIGIL_NONE | COMMAND_LINE_SEPARATOR_COLON |
 	        COMMAND_LINE_IGN_UNKNOWN_KEYWORD;
-	status = CommandLineParseArgumentsA(args->argc, (const char**) args->argv,
+	status = CommandLineParseArgumentsA(args->argc, args->argv,
 	                                    audin_alsa_args, flags, alsa, NULL, NULL);
 
 	if (status < 0)
