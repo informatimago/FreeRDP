@@ -1292,6 +1292,19 @@ static BOOL ends_with(const char* str, const char* ext)
 
 	return strncmp(&str[strLen - extLen], ext, extLen) == 0;
 }
+
+static void activate_smartcard_logon_rdp(rdpSettings* settings)
+{
+	settings->SmartcardLogon = TRUE;
+	settings->Pin = NULL;
+	settings->RdpSecurity = TRUE;
+	settings->TlsSecurity = FALSE;
+	settings->NlaSecurity = FALSE;
+	settings->ExtSecurity = FALSE;
+	/* TODO: why not? settings->UseRdpSecurityLayer = TRUE; */
+	freerdp_set_param_bool(settings, FreeRDP_PasswordIsSmartcardPin, TRUE);
+}
+
 int freerdp_client_settings_parse_command_line_arguments(rdpSettings* settings,
         int argc, char** argv, BOOL allowUnknown)
 {
@@ -2628,6 +2641,53 @@ int freerdp_client_settings_parse_command_line_arguments(rdpSettings* settings,
 		CommandLineSwitchCase(arg, "fipsmode")
 		{
 			settings->FIPSMode = TRUE;
+		}
+		CommandLineSwitchCase(arg, "smartcard-logon")
+		{
+			if (!((0 == arg->Value) || (0 == strcmp(arg->Value, "rdp")) || (0 == strcmp(arg->Value, ""))))
+			{
+				/* Later,  we may implement --smartcard-logon:kerberos-sso or other variants. */
+				return COMMAND_LINE_ERROR_UNEXPECTED_VALUE;
+			}
+
+			activate_smartcard_logon_rdp(settings);
+		}
+		CommandLineSwitchCase(arg, "logon-card")
+		{
+			/*  Get the reader name; note: we could reject commas and multiple values. */
+			char*   reader_name = arg->Value;
+
+			if (!reader_name)
+			{
+				return COMMAND_LINE_ERROR_MISSING_VALUE;
+			}
+
+			/* Add the named smartcard reader device if not already there */
+			if (!freerdp_device_collection_find(settings, reader_name))
+			{
+				char* p[2] = { reader_name, 0 };
+
+				if (!freerdp_client_add_device_channel(settings, 1, p))
+				{
+					return COMMAND_LINE_ERROR;
+				}
+			}
+
+			/*  Activate SmartcardLogon RDP if SmartcardLogon is not already active. */
+			if (!settings->SmartcardLogon)
+			{
+				activate_smartcard_logon_rdp(settings);
+			}
+		}
+		CommandLineSwitchCase(arg, "pin")
+		{
+			CHECK_MEMORY(copy_string(&settings->Pin, arg->Value));
+			FillMemory(arg->Value, strlen(arg->Value), '*');
+
+			if (!settings->SmartcardLogon)
+			{
+				activate_smartcard_logon_rdp(settings);
+			}
 		}
 		CommandLineSwitchDefault(arg)
 		{
