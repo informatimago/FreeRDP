@@ -179,7 +179,7 @@ BOOL freerdp_client_print_command_line_help_ex(int argc, char** argv,
 }
 
 static int freerdp_client_command_line_pre_filter(void* context, int index,
-        int argc, LPCSTR* argv)
+        int argc, LPSTR* argv)
 {
 	if (index == 1)
 	{
@@ -1044,7 +1044,7 @@ int freerdp_map_keyboard_layout_name_to_id(char* name)
 }
 
 static int freerdp_detect_command_line_pre_filter(void* context, int index,
-        int argc, LPCSTR* argv)
+        int argc, LPSTR* argv)
 {
 	int length;
 
@@ -1090,7 +1090,7 @@ static int freerdp_detect_windows_style_command_line_syntax(int argc, char** arg
 	*count = 0;
 	detect_status = 0;
 	CommandLineClearArgumentsA(args);
-	status = CommandLineParseArgumentsA(argc, (const char**) argv, args, flags,
+	status = CommandLineParseArgumentsA(argc, argv, args, flags,
 	                                    NULL, freerdp_detect_command_line_pre_filter, NULL);
 
 	if (status < 0)
@@ -1132,7 +1132,7 @@ int freerdp_detect_posix_style_command_line_syntax(int argc, char** argv,
 	*count = 0;
 	detect_status = 0;
 	CommandLineClearArgumentsA(args);
-	status = CommandLineParseArgumentsA(argc, (const char**) argv, args, flags,
+	status = CommandLineParseArgumentsA(argc, argv, args, flags,
 	                                    NULL, freerdp_detect_command_line_pre_filter, NULL);
 
 	if (status < 0)
@@ -1309,8 +1309,8 @@ int freerdp_client_settings_parse_command_line_arguments(rdpSettings* settings,
 	COMMAND_LINE_ARGUMENT_A* arg;
 
 	/* Command line detection fails if only a .rdp or .msrcIncident file
-	 * is supplied. Check this case first, only then try to detect
-	 * legacy command line syntax. */
+	    * is supplied. Check this case first, only then try to detect
+	    * legacy command line syntax. */
 	if (argc > 1)
 	{
 		ext = ends_with(argv[1], ".rdp");
@@ -1352,7 +1352,7 @@ int freerdp_client_settings_parse_command_line_arguments(rdpSettings* settings,
 		}
 
 		CommandLineClearArgumentsA(args);
-		status = CommandLineParseArgumentsA(argc, (const char**) argv, args, flags,
+		status = CommandLineParseArgumentsA(argc, argv, args, flags,
 		                                    settings,
 		                                    freerdp_client_command_line_pre_filter,
 		                                    freerdp_client_command_line_post_filter);
@@ -1845,12 +1845,12 @@ int freerdp_client_settings_parse_command_line_arguments(rdpSettings* settings,
 				if (atPtr)
 				{
 					/* got a login / password,
-					 *               atPtr
-					 *               v
-					 * [user:password@]hostname:port
-					 *      ^
-					 *      colonPtr
-					 */
+					                    *               atPtr
+					                    *               v
+					                    * [user:password@]hostname:port
+					                    *      ^
+					                    *      colonPtr
+					                    */
 					char* colonPtr = strchr(arg->Value, ':');
 
 					if (!colonPtr || (colonPtr > atPtr))

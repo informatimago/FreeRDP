@@ -1,0 +1,29 @@
+#!/bin/bash
+set -eu
+(
+    set -eu
+    sed -n -e '1,/struct rdp_settings/p' < include/freerdp/settings.h 
+    (
+        set -eu
+        i=0
+        sed -e '1,/struct rdp_settings/d'  -e '/^{/d' -e '/};/,$d' \
+            | sed -e '/End of ABI stable zone/,$d' \
+            | sed -e '$a\
+x*/' \
+            | tr -d '\012' \
+            | sed -e  's-/\*\([^*]\|\*[^/]\)*\*/--g' -e 's/[ 	][ 	]*/ /g' \
+            | tr ';' '\012' \
+            | sed -e 's/^[ 	]*\([A-Za-z_][A-Za-z_0-9]*[* 	]*\)*[* 	]\([A-Za-z_][A-Za-z_0-9]*\)/\2/' \
+                  -e 's/padding[0-9]*[ 	]*\[\(.*\)\]/$((\1))/' \
+            | while read line ; do
+
+            case "$line" in
+            (*-*) i=$(( i + $(eval echo "$line") )) ;;
+            (*)   printf '#define FreeRDP_%-50s (%4d)\n' "$line" "$i" ; i=$(( i + 1 )) ;;
+            esac 
+        done 
+    ) < include/freerdp/settings.h 
+    sed -n -e '/^{/d' -e '/};/,$p'  < include/freerdp/settings.h
+) > include/freerdp/settings.h.new \
+    && cp include/freerdp/settings.h include/freerdp/settings.h.old \
+    && mv include/freerdp/settings.h.new include/freerdp/settings.h
