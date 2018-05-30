@@ -1479,7 +1479,8 @@ FREERDP_API RDPDR_DEVICE* freerdp_device_collection_find(rdpSettings* settings, 
 FREERDP_API RDPDR_DEVICE* freerdp_device_collection_find_type(rdpSettings* settings, UINT32 type);
 FREERDP_API RDPDR_DEVICE* freerdp_device_clone(RDPDR_DEVICE* device);
 FREERDP_API void freerdp_device_collection_free(rdpSettings* settings);
-
+FREERDP_API void freerdp_device_print(RDPDR_DEVICE* device, UINT32 index, const char * fname, UINT32 lino);
+FREERDP_API void freerdp_device_print_all(rdpSettings* settings, const char * fname, UINT32 lino);
 FREERDP_API BOOL freerdp_static_channel_collection_add(rdpSettings* settings, ADDIN_ARGV* channel);
 FREERDP_API ADDIN_ARGV* freerdp_static_channel_collection_find(rdpSettings* settings,
         const char* name);
