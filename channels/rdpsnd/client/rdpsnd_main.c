@@ -945,16 +945,6 @@ static UINT rdpsnd_process_connect(rdpsndPlugin* rdpsnd)
 
 		if (!rdpsnd->device || status)
 			return CHANNEL_RC_INITIALIZATION_ERROR;
-
-		rdpsnd->ScheduleThread = CreateThread(NULL, 0,
-		                                      rdpsnd_schedule_thread,
-		                                      (void*) rdpsnd, 0, NULL);
-
-		if (!rdpsnd->ScheduleThread)
-		{
-			WLog_ERR(TAG, "CreateThread failed!");
-			return CHANNEL_RC_INITIALIZATION_ERROR;
-                }
 	}
 
 	return CHANNEL_RC_OK;

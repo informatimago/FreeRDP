@@ -451,6 +451,7 @@ static LONG smartcard_ListReadersA_Decode(SMARTCARD_DEVICE* smartcard,
 	return status;
 }
 
+
 static LONG smartcard_ListReadersA_Call(SMARTCARD_DEVICE* smartcard, SMARTCARD_OPERATION* operation)
 {
 	LONG status;

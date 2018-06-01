@@ -109,7 +109,7 @@ typedef struct _SMARTCARD_CONTEXT SMARTCARD_CONTEXT;
 struct _SMARTCARD_DEVICE
 {
 	DEVICE device;
-
+        wLinkedList* filter; /* a list of substring for redirected smartcard reader names */
 	HANDLE thread;
 	HANDLE StartedEvent;
 	wMessageQueue* IrpQueue;

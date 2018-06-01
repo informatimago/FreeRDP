@@ -1,0 +1,7 @@
+(defun expand-string-at-point ()
+  (interactive)
+  (let ((string (thing-at-point 'sexp)))
+    (when (stringp string)
+      (kill-sexp)
+      (insert "{" (mapconcat (lambda (ch) (format "'%c'" ch))
+                             (car(read-from-string string)) ", ")  ", 0}"))))

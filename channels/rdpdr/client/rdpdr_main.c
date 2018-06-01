@@ -1056,9 +1056,11 @@ static UINT rdpdr_process_connect(rdpdrPlugin* rdpdr)
 	else
 		strncpy(rdpdr->computerName, settings->ComputerName,
 		        sizeof(rdpdr->computerName) - 1);
+
 #ifndef NDEBUG
-        freerdp_device_print_all(settings, __FUNCTION__, __LINE__);
+	freerdp_device_print_all(settings, __FUNCTION__, __LINE__);
 #endif
+
 	for (index = 0; index < settings->DeviceCount; index++)
 	{
 		device = settings->DeviceArray[index];
@@ -1213,7 +1215,6 @@ static UINT rdpdr_send_device_list_announce_request(rdpdrPlugin* rdpdr,
 	ULONG_PTR* pKeys;
 	s = Stream_New(NULL, 256);
 
-
 	if (!s)
 	{
 		WLog_ERR(TAG, "Stream_New failed!");
@@ -1232,10 +1233,9 @@ static UINT rdpdr_send_device_list_announce_request(rdpdrPlugin* rdpdr,
 	{
 		device = (DEVICE*) ListDictionary_GetItemValue(rdpdr->devman->devices,
 		         (void*) pKeys[index]);
-
-                WLog_INFO(TAG, "%s:%u: userLoggedOn = %s",  __FUNCTION__, __LINE__, (userLoggedOn?"TRUE":"FALSE"));
-                freerdp_device_print(device, index, __FUNCTION__, __LINE__);
-
+		WLog_DBG(TAG, "%s:%u: userLoggedOn = %s",  __FUNCTION__, __LINE__,
+                        (userLoggedOn ? "TRUE" : "FALSE"));
+		freerdp_device_print((RDPDR_DEVICE *)device, index, __FUNCTION__, __LINE__);
 		/**
 		 * 1. versionMinor 0x0005 doesn't send PAKID_CORE_USER_LOGGEDON
 		 *    so all devices should be sent regardless of user_loggedon
