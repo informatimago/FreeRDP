@@ -354,53 +354,56 @@ static COMMAND_LINE_ARGUMENT_A audin_mac_args[] =
 
 static UINT audin_mac_parse_addin_args(AudinMacDevice *device, ADDIN_ARGV *args)
 {
-    DWORD errCode;
-    char errString[1024];
-    int status;
-    char* str_num, *eptr;
-    DWORD flags;
-    COMMAND_LINE_ARGUMENT_A* arg;
-    AudinMacDevice* mac = (AudinMacDevice*)device;
+	DWORD errCode;
+	char errString[1024];
+	int status;
+	char* str_num, *eptr;
+	DWORD flags;
+	COMMAND_LINE_ARGUMENT_A* arg;
+	AudinMacDevice* mac = (AudinMacDevice*)device;
 
-    if (args->argc == 1)
-        return CHANNEL_RC_OK;
+	if (args->argc == 1)
+		return CHANNEL_RC_OK;
 
-    flags = COMMAND_LINE_SIGIL_NONE | COMMAND_LINE_SEPARATOR_COLON | COMMAND_LINE_IGN_UNKNOWN_KEYWORD;
-    status = CommandLineParseArgumentsA(args->argc, (const char**)args->argv, audin_mac_args, flags, mac, NULL, NULL);
+	flags = COMMAND_LINE_SIGIL_NONE | COMMAND_LINE_SEPARATOR_COLON | COMMAND_LINE_IGN_UNKNOWN_KEYWORD;
+	status = CommandLineParseArgumentsA(args->argc, args->argv, audin_mac_args, flags,
+	                                    mac, NULL, NULL);
 
-    if (status < 0)
-        return ERROR_INVALID_PARAMETER;
+	if (status < 0)
+		return ERROR_INVALID_PARAMETER;
 
-    arg = audin_mac_args;
+	arg = audin_mac_args;
 
-    do
-    {
-        if (!(arg->Flags & COMMAND_LINE_VALUE_PRESENT))
-            continue;
+	do
+	{
+		if (!(arg->Flags & COMMAND_LINE_VALUE_PRESENT))
+			continue;
 
-        CommandLineSwitchStart(arg)
-                CommandLineSwitchCase(arg, "dev")
-        {
-            str_num = _strdup(arg->Value);
-            if (!str_num)
-            {
-                errCode = GetLastError();
-                WLog_ERR(TAG, "_strdup failed with %s [%d]",
-                         winpr_strerror(errCode, errString, sizeof(errString)), errCode);
-                return CHANNEL_RC_NO_MEMORY;
-            }
-            mac->dev_unit = strtol(str_num, &eptr, 10);
+		CommandLineSwitchStart(arg)
+		CommandLineSwitchCase(arg, "dev")
+		{
+			str_num = _strdup(arg->Value);
 
-            if (mac->dev_unit < 0 || *eptr != '\0')
-                mac->dev_unit = -1;
+			if (!str_num)
+			{
+				errCode = GetLastError();
+				WLog_ERR(TAG, "_strdup failed with %s [%d]",
+				         winpr_strerror(errCode, errString, sizeof(errString)), errCode);
+				return CHANNEL_RC_NO_MEMORY;
+			}
 
-            free(str_num);
-        }
-        CommandLineSwitchEnd(arg)
-    }
-    while ((arg = CommandLineFindNextArgumentA(arg)) != NULL);
+			mac->dev_unit = strtol(str_num, &eptr, 10);
 
-    return CHANNEL_RC_OK;
+			if (mac->dev_unit < 0 || *eptr != '\0')
+				mac->dev_unit = -1;
+
+			free(str_num);
+		}
+		CommandLineSwitchEnd(arg)
+	}
+	while ((arg = CommandLineFindNextArgumentA(arg)) != NULL);
+
+	return CHANNEL_RC_OK;
 }
 
 #ifdef BUILTIN_CHANNELS
