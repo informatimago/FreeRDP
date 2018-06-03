@@ -1,9 +1,9 @@
 
 #include "../str.h"
 
-#define check(expression, compare, expected) \
-        check_internal(expression, compare, expected, result##__LINE__)
-#define check_internal(expression, compare, expected, result) \
+#define check(expression, compare, expected, format) \
+        check_internal(expression, compare, expected, format, result##__LINE__)
+#define check_internal(expression, compare, expected, format, result) \
         {                                                                                       \
                 typeof(expression) result = expression;                                         \
                 if (!(result compare expected))                                                 \
@@ -11,7 +11,7 @@
                         printf("%s:%d: Test %s,  %s %s %s failed!\n",                           \
                                 __FILE__, __LINE__,__FUNCTION__,                                \
                                 #expression, #compare, #expected);                              \
-                        printf(" %s resulted in %d\n", #expression,  result);                   \
+                        printf(" %s resulted in "format"\n", #expression,  result);             \
                         return FALSE;                                                           \
                 }                                                                               \
         }
@@ -20,12 +20,12 @@
 
 BOOL test_ref(struct string_funs * fun,  BYTE *string)
 {
-        check(fun->ref(string, 0), ==, 'h');
-        check(fun->ref(string, 1), ==, 'e');
-        check(fun->ref(string, 2), ==, 'l');
-        check(fun->ref(string, 3), ==, 'l');
-        check(fun->ref(string, 4), ==, 'o');
-        check(fun->ref(string, 5), ==, 0);
+        check(fun->ref(string, 0), ==, 'h', "%d");
+        check(fun->ref(string, 1), ==, 'e', "%d");
+        check(fun->ref(string, 2), ==, 'l', "%d");
+        check(fun->ref(string, 3), ==, 'l', "%d");
+        check(fun->ref(string, 4), ==, 'o', "%d");
+        check(fun->ref(string, 5), ==,  0,  "%d");
         return TRUE;
 }
 
@@ -45,12 +45,12 @@ BOOL test_wref()
 BOOL test_set(struct string_funs * fun,  BYTE *string)
 {
         fun->set(string, 2, 'w');
-        check(fun->ref(string, 0), ==, 'h');
-        check(fun->ref(string, 1), ==, 'e');
-        check(fun->ref(string, 2), ==, 'w');
-        check(fun->ref(string, 3), ==, 'l');
-        check(fun->ref(string, 4), ==, 'o');
-        check(fun->ref(string, 5), ==, 0);
+        check(fun->ref(string, 0), ==, 'h', "%d");
+        check(fun->ref(string, 1), ==, 'e', "%d");
+        check(fun->ref(string, 2), ==, 'w', "%d");
+        check(fun->ref(string, 3), ==, 'l', "%d");
+        check(fun->ref(string, 4), ==, 'o', "%d");
+        check(fun->ref(string, 5), ==, 0, "%d");
         return TRUE;
 }
 
@@ -70,9 +70,9 @@ BOOL test_wset()
 
 BOOL test_len(struct string_funs * fun,  BYTE *empty, BYTE *shortstr, BYTE *longstr)
 {
-        check(fun->len(empty), ==, 0);
-        check(fun->len(shortstr), ==, 5);
-        check(fun->len(longstr), ==, 27);
+        check(fun->len(empty), ==, 0, "%d");
+        check(fun->len(shortstr), ==, 5, "%d");
+        check(fun->len(longstr), ==, 27, "%d");
         return TRUE;
 }
 
@@ -95,13 +95,13 @@ BOOL test_wlen()
 
 BOOL test_inc(struct string_funs * fun,  BYTE *string)
 {
-        BYTE * next = fun->inc(string, 0);              
-        check(next, ==, string);
-        check(fun->ref(next, 0), ==, 'h');
+        BYTE * next = fun->inc(string, 0);
+        check(next, ==, string, "%s");
+        check(fun->ref(next, 0), ==, 'h', "%d");
         next = fun->inc(next, 6);
-        check(fun->ref(next, 0), ==, 'w');
+        check(fun->ref(next, 0), ==, 'w', "%d");
         next = fun->inc(next, 7);
-        check(fun->ref(next, 0), ==, 'h');
+        check(fun->ref(next, 0), ==, 'h', "%d");
         return TRUE;
 }
 
@@ -145,10 +145,10 @@ static struct
                         {0, "hello world"},
                         {-1, "hello world how do you do"},
                         {1, "hello aaaaa"},
-                        {-1, "hello zzzzz"}, 
+                        {-1, "hello zzzzz"},
                         { -2, "done"}
                 }
-        }, 
+        },
         {
                 "m",
                 {'m', 0},
@@ -161,17 +161,17 @@ static struct
                         {-1, "z"},
                         { -2, "done"}
                 }
-        }, 
+        },
         {
                 "",
-                {0}, 
+                {0},
                 {
                         {0, ""},
                         {-1, "h"},
                         {-1, "hh"},
                         {-1, "m"},
                         {-1, "mm"},
-                        {-1, "z"}, 
+                        {-1, "z"},
                         { -2, "done"}
                 }
         }
@@ -246,7 +246,7 @@ static struct
                         {0, "hello world", 1000},
                         {-1, "hello world how do you do", 1000},
                         {1, "hello aaaaa", 1000},
-                        {-1, "hello zzzzz", 1000}, 
+                        {-1, "hello zzzzz", 1000},
 
                         {0, "", 0},
                         {0, "h", 0},
@@ -254,7 +254,7 @@ static struct
                         {0, "hello world", 0},
                         {0, "hello world how do you do", 0},
                         {0, "hello aaaaa", 0},
-                        {0, "hello zzzzz", 0}, 
+                        {0, "hello zzzzz", 0},
 
                         {1, "", 5},
                         {1, "h", 5},
@@ -262,7 +262,7 @@ static struct
                         {0, "hello world", 5},
                         {0, "hello world how do you do", 5},
                         {0, "hello aaaaa", 5},
-                        {0, "hello zzzzz", 5}, 
+                        {0, "hello zzzzz", 5},
 
                         {1, "", 8},
                         {1, "h", 8},
@@ -270,11 +270,11 @@ static struct
                         {0, "hello world", 8},
                         {0, "hello world how do you do", 8},
                         {1, "hello aaaaa", 8},
-                        {-1, "hello zzzzz", 8}, 
+                        {-1, "hello zzzzz", 8},
 
                         { -2, "done", 0}
                 }
-        }, 
+        },
         {
                 "m",
                 {'m', 0},
@@ -302,31 +302,31 @@ static struct
 
                         { -2, "done", 0},
                 }
-        }, 
+        },
         {
                 "",
-                {0}, 
+                {0},
                 {
                         {0, "", 1000},
                         {-1, "h", 1000},
                         {-1, "hh", 1000},
                         {-1, "m", 1000},
                         {-1, "mm", 1000},
-                        {-1, "z", 1000}, 
+                        {-1, "z", 1000},
 
                         {0, "", 0},
                         {0, "h", 0},
                         {0, "hh", 0},
                         {0, "m", 0},
                         {0, "mm", 0},
-                        {0, "z", 0}, 
+                        {0, "z", 0},
 
                         {0, "", 1},
                         {-1, "h", 1},
                         {-1, "hh", 1},
                         {-1, "m", 1},
                         {-1, "mm", 1},
-                        {-1, "z", 1}, 
+                        {-1, "z", 1},
 
                         { -2, "done", 0}
                 }

@@ -235,6 +235,20 @@ BOOL LinkedList_StringIsMember(wLinkedList* list, const char * string)
         return LinkedList_ContainsWithEqual(list, (void *) string, String_Equal);
 }
 
+
+void LinkedList_PrintStrings(wLinkedList* list)
+{
+        const char *  separator = "";
+        printf("(");
+        LinkedList_Enumerator_Reset(list);
+	while (LinkedList_Enumerator_MoveNext(list))
+	{
+                printf("%s\"%s\"", separator,  LinkedList_Enumerator_Current(list));
+                separator = " ";
+	}
+        printf(")\n");
+}
+
 static BOOL all_smartcard_devices_are_redirected(rdpSettings* settings)
 {
         RDPDR_SMARTCARD* smartcard = (RDPDR_SMARTCARD*)freerdp_device_collection_find_type(settings, RDPDR_DTYP_SMARTCARD);
@@ -277,7 +291,7 @@ fail:
         return FALSE;
 }
 
-static BOOL redirect_all_smartcard_devices(rdpSettings* settings)
+BOOL redirect_all_smartcard_devices(rdpSettings* settings)
 {
         printf("%s:%d: %s()\n", __FILE__, __LINE__, __FUNCTION__);
         RDPDR_SMARTCARD* smartcard = (RDPDR_SMARTCARD*)freerdp_device_collection_find_type(settings, RDPDR_DTYP_SMARTCARD);
@@ -286,6 +300,7 @@ static BOOL redirect_all_smartcard_devices(rdpSettings* settings)
                 LinkedList_Clear(smartcard->deviceFilter);
                 if(!LinkedList_AddLast(smartcard->deviceFilter, ""))
                 {
+                        WLog_ERR(TAG, "Couldn't add smartcard device filter \"%s\"", "");
                         return FALSE;
                 }
         }
@@ -293,6 +308,7 @@ static BOOL redirect_all_smartcard_devices(rdpSettings* settings)
         {
                 if(!add_smartcard_device(settings, ""))
                 {
+                        WLog_ERR(TAG, "Couldn't add smartcard device record");
                         return FALSE;
                 }
         }
@@ -300,10 +316,12 @@ static BOOL redirect_all_smartcard_devices(rdpSettings* settings)
         settings->RedirectSmartCards = TRUE;
         settings->DeviceRedirection = TRUE;
 
+        /* DEBUG */ smartcard = (RDPDR_SMARTCARD*)freerdp_device_collection_find_type(settings, RDPDR_DTYP_SMARTCARD);
+        /* DEBUG */ printf("%s:%d: %s() deviceFilter = ", __FILE__, __LINE__, __FUNCTION__); LinkedList_PrintStrings(smartcard->deviceFilter);
         return TRUE;
 }
 
-static BOOL redirect_smartcard_device(rdpSettings* settings, const char * name)
+BOOL redirect_smartcard_device(rdpSettings* settings, const char * name)
 {
         RDPDR_SMARTCARD* smartcard = 0;
 
@@ -337,14 +355,14 @@ static BOOL redirect_smartcard_device(rdpSettings* settings, const char * name)
         {
                 if(!LinkedList_AddLast(smartcard->deviceFilter, (void * )name))
                 {
-                        WLog_ERR(TAG, "Couldn't add device filter %s", name);
-
+                        WLog_ERR(TAG, "Couldn't add smartcard device filter \"%s\"", name);
                         return FALSE;
                 }
         }
 
         settings->RedirectSmartCards = TRUE;
         settings->DeviceRedirection = TRUE;
+        /* DEBUG */ printf("%s:%d: %s() deviceFilter = ", __FILE__, __LINE__, __FUNCTION__); LinkedList_PrintStrings(smartcard->deviceFilter);
         return TRUE;
 }
 

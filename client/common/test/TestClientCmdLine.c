@@ -411,7 +411,7 @@ void check_modified_arguments(test* test, char** command_line, int* rc)
 		}
 	}
 }
-
+#define TestClientCmdLine main
 int TestClientCmdLine(int argc, char* argv[])
 {
 	int rc = 0;
