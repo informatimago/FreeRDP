@@ -1232,10 +1232,9 @@ static UINT rdpdr_send_device_list_announce_request(rdpdrPlugin* rdpdr,
 	{
 		device = (DEVICE*) ListDictionary_GetItemValue(rdpdr->devman->devices,
 		         (void*) pKeys[index]);
-
-                WLog_INFO(TAG, "%s:%u: userLoggedOn = %s",  __FUNCTION__, __LINE__, (userLoggedOn?"TRUE":"FALSE"));
-                freerdp_device_print(device, index, __FUNCTION__, __LINE__);
-
+		WLog_DBG(TAG, "%s:%u: userLoggedOn = %s",  __FUNCTION__, __LINE__,
+		         (userLoggedOn ? "TRUE" : "FALSE"));
+		freerdp_device_print((RDPDR_DEVICE*)device, index, __FUNCTION__, __LINE__);
 		/**
 		 * 1. versionMinor 0x0005 doesn't send PAKID_CORE_USER_LOGGEDON
 		 *    so all devices should be sent regardless of user_loggedon

@@ -1053,7 +1053,6 @@ static LONG smartcard_StatusA_Call(SMARTCARD_DEVICE* smartcard, SMARTCARD_OPERAT
 	IRP* irp = operation->irp;
 	Status_Call* call = operation->call;
 	ZeroMemory(ret.pbAtr, 32);
-
 	call->cbAtrLen = 32;
 	cbAtrLen = call->cbAtrLen;
 

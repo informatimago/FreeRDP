@@ -135,7 +135,7 @@ SMARTCARD_CONTEXT* smartcard_context_new(SMARTCARD_DEVICE* smartcard,
 	}
 
 	pContext->thread = CreateThread(NULL, 0,
-									smartcard_context_thread,
+	                                smartcard_context_thread,
 	                                pContext, 0, NULL);
 
 	if (!pContext->thread)
@@ -258,7 +258,7 @@ static void smartcard_release_all_contexts(SMARTCARD_DEVICE* smartcard)
 static UINT smartcard_free(DEVICE* device)
 {
 	UINT error;
-	SMARTCARD_DEVICE* smartcard = (SMARTCARD_DEVICE*) device;
+	SMARTCARD_DEVICE* smartcard = (SMARTCARD_DEVICE*) device; /* TODO: OUTCH! */
 	/**
 	 * Calling smartcard_release_all_contexts to unblock all operations waiting for transactions
 	 * to unlock.
@@ -691,12 +691,15 @@ UINT DeviceServiceEntry(PDEVICE_SERVICE_ENTRY_POINTS pEntryPoints)
 
 	smartcard->device.type = RDPDR_DTYP_SMARTCARD;
 	smartcard->device.name = "SCARD";
+	smartcard->filter = ((RDPDR_SMARTCARD*)(pEntryPoints->device))->deviceFilter;
 	smartcard->device.IRPRequest = smartcard_irp_request;
 	smartcard->device.Init = smartcard_init;
 	smartcard->device.Free = smartcard_free;
 	smartcard->rdpcontext = pEntryPoints->rdpcontext;
 	length = strlen(smartcard->device.name);
 	smartcard->device.data = Stream_New(NULL, length + 1);
+	WLog_DBG(TAG, "smartcard_DeviceServiceEntry(%s -> %s)",
+	         pEntryPoints->device->Name, smartcard->device.name);
 
 	if (!smartcard->device.data)
 	{
@@ -747,7 +750,7 @@ UINT DeviceServiceEntry(PDEVICE_SERVICE_ENTRY_POINTS pEntryPoints)
 	}
 
 	smartcard->thread = CreateThread(NULL, 0,
-									 smartcard_thread_func,
+	                                 smartcard_thread_func,
 	                                 smartcard, CREATE_SUSPENDED, NULL);
 
 	if (!smartcard->thread)

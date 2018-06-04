@@ -241,6 +241,17 @@ struct _wLinkedList
 };
 typedef struct _wLinkedList wLinkedList;
 
+typedef BOOL (*EqualPr)(void* a, void* b);
+/**
+Pointer_Equal returns whether a ==  b.
+*/
+WINPR_API BOOL Pointer_Equal(void* a, void* b);
+
+/**
+String_Equal returns whether 0 == strcmp(a, b)
+*/
+WINPR_API BOOL String_Equal(void* a, void* b);
+
 WINPR_API int LinkedList_Count(wLinkedList* list);
 WINPR_API void* LinkedList_First(wLinkedList* list);
 WINPR_API void* LinkedList_Last(wLinkedList* list);
@@ -299,7 +310,8 @@ typedef struct _wReferenceTable wReferenceTable;
 WINPR_API UINT32 ReferenceTable_Add(wReferenceTable* referenceTable, void* ptr);
 WINPR_API UINT32 ReferenceTable_Release(wReferenceTable* referenceTable, void* ptr);
 
-WINPR_API wReferenceTable* ReferenceTable_New(BOOL synchronized, void* context, REFERENCE_FREE ReferenceFree);
+WINPR_API wReferenceTable* ReferenceTable_New(BOOL synchronized, void* context,
+        REFERENCE_FREE ReferenceFree);
 WINPR_API void ReferenceTable_Free(wReferenceTable* referenceTable);
 
 /* Countdown Event */
@@ -327,7 +339,7 @@ WINPR_API void CountdownEvent_Free(wCountdownEvent* countdown);
 
 /* Hash Table */
 
-typedef UINT32 (*HASH_TABLE_HASH_FN)(void* key);
+typedef UINT32(*HASH_TABLE_HASH_FN)(void* key);
 typedef BOOL (*HASH_TABLE_KEY_COMPARE_FN)(void* key1, void* key2);
 typedef BOOL (*HASH_TABLE_VALUE_COMPARE_FN)(void* value1, void* value2);
 typedef void* (*HASH_TABLE_KEY_CLONE_FN)(void* key);
@@ -478,7 +490,8 @@ WINPR_API BOOL MessageQueue_Wait(wMessageQueue* queue);
 WINPR_API int MessageQueue_Size(wMessageQueue* queue);
 
 WINPR_API BOOL MessageQueue_Dispatch(wMessageQueue* queue, wMessage* message);
-WINPR_API BOOL MessageQueue_Post(wMessageQueue* queue, void* context, UINT32 type, void* wParam, void* lParam);
+WINPR_API BOOL MessageQueue_Post(wMessageQueue* queue, void* context, UINT32 type, void* wParam,
+                                 void* lParam);
 WINPR_API BOOL MessageQueue_PostQuit(wMessageQueue* queue, int nExitCode);
 
 WINPR_API int MessageQueue_Get(wMessageQueue* queue, wMessage* message);
@@ -494,7 +507,7 @@ WINPR_API int MessageQueue_Peek(wMessageQueue* queue, wMessage* message, BOOL re
  *
  *  \return 0 in case of success or a error code otherwise.
  */
-WINPR_API int MessageQueue_Clear(wMessageQueue *queue);
+WINPR_API int MessageQueue_Clear(wMessageQueue* queue);
 
 /*! \brief Creates a new message queue.
  * 				 If 'callback' is null, no custom cleanup will be done
@@ -508,7 +521,7 @@ WINPR_API int MessageQueue_Clear(wMessageQueue *queue);
  *
  * \return A pointer to a newly allocated MessageQueue or NULL.
  */
-WINPR_API wMessageQueue* MessageQueue_New(const wObject *callback);
+WINPR_API wMessageQueue* MessageQueue_New(const wObject* callback);
 
 /*! \brief Frees resources allocated by a message queue.
  * 				 This function will only free resources allocated
@@ -581,7 +594,7 @@ typedef struct _wEventType wEventType;
 
 #define DEFINE_EVENT_BEGIN(_name) \
 	typedef struct _ ## _name ## EventArgs { \
-	wEventArgs e;
+		wEventArgs e;
 
 #define DEFINE_EVENT_END(_name) \
 	} _name ## EventArgs; \
@@ -592,10 +605,10 @@ typedef struct _wEventType wEventType;
 
 #define DEFINE_EVENT_ENTRY(_name) \
 	{ #_name, { sizeof( _name ## EventArgs) }, 0, { \
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, \
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, \
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, \
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL } },
+		        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, \
+		        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, \
+		        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, \
+		        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL } },
 
 struct _wPubSub
 {
@@ -616,7 +629,8 @@ WINPR_API void PubSub_AddEventTypes(wPubSub* pubSub, wEventType* events, int cou
 WINPR_API wEventType* PubSub_FindEventType(wPubSub* pubSub, const char* EventName);
 
 WINPR_API int PubSub_Subscribe(wPubSub* pubSub, const char* EventName, pEventHandler EventHandler);
-WINPR_API int PubSub_Unsubscribe(wPubSub* pubSub, const char* EventName, pEventHandler EventHandler);
+WINPR_API int PubSub_Unsubscribe(wPubSub* pubSub, const char* EventName,
+                                 pEventHandler EventHandler);
 
 WINPR_API int PubSub_OnEvent(wPubSub* pubSub, const char* EventName, void* context, wEventArgs* e);
 
