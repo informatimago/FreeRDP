@@ -1,6 +1,19 @@
 #include <stdio.h>
 #include <winpr/wtypes.h>
+#include <winpr/strlst.h>
 #include "../str.h"
+
+void memdump(BYTE* mem, int size)
+{
+	int i;
+
+	for (i = 0; i < size; i ++)
+	{
+		printf("%02x ", mem[i]);
+	}
+}
+
+#define printref()  printf("%s:%d: Test %s:",__FILE__, __LINE__,__FUNCTION__)
 
 #define check(expression, compare, expected, format)                            \
 	check_internal(expression, compare, expected, format, result##__LINE__)
@@ -9,14 +22,13 @@
 		typeof(expression) result = expression;                                 \
 		if (!(result compare expected))                                         \
 		{                                                                       \
-			printf("%s:%d: Test %s,  %s %s %s failed!\n",                   \
-			       __FILE__, __LINE__,__FUNCTION__,                        \
-			       #expression, #compare, #expected);                      \
+                        printref();                                                     \
+                        printf("  %s %s %s failed!\n",                                  \
+                                #expression, #compare, #expected);                      \
 			printf(" %s resulted in "format"\n", #expression,  result);     \
 			return FALSE;                                                   \
 		}                                                                       \
 	}
-
 
 BOOL test_ref(struct string_funs* fun,  BYTE* string)
 {
@@ -201,9 +213,8 @@ BOOL test_compare()
 					BYTE *  ctgt = 0;                                               \
 					convert(string, cstr);                                          \
 					convert(target, ctgt);                                          \
-					printf("%s:%d: Test %s: compare(char, %s, %s) failed!\n",       \
-                                                __FILE__, __LINE__, __FUNCTION__,                       \
-                                                cstr, ctgt);                                            \
+                                        printref();                                                     \
+					printf("compare(char, %s, %s) failed!\n",cstr, ctgt);           \
 					printf(" it resulted in %d,  expected % d\n",                   \
                                                 result, expected);                                      \
 					free(cstr);                                                     \
@@ -338,7 +349,7 @@ BOOL test_ncompare()
 	int i;
 	int j;
 	struct string_funs* fun;
-#define test_ncompare_loop(string, convert, free)                                                        \
+#define test_ncompare_loop(string, convert, free)                                                       \
 	do                                                                                              \
 	{                                                                                               \
 		for (i = 0;i < countof(ncompares);i ++ )                                                \
@@ -356,11 +367,11 @@ BOOL test_ncompare()
 					BYTE *  ctgt = 0;                                               \
 					convert(string, cstr);                                          \
 					convert(target, ctgt);                                          \
-					printf("%s:%d: Test %s: ncompare(char, %s, %s, %d) failed!\n",  \
-					       __FILE__, __LINE__, __FUNCTION__,                       \
-					       cstr, ctgt, max);                                       \
+                                        printref();                                                     \
+					printf("ncompare(char, %s, %s, %d) failed!\n",                  \
+                                                cstr, ctgt, max);                                       \
 					printf(" it resulted in %d,  expected % d\n",                   \
-					       result, expected);                                      \
+                                                result, expected);                                      \
 					free(cstr);                                                     \
 					free(ctgt);                                                     \
 					success = FALSE;                                                \
@@ -427,16 +438,6 @@ static struct
 	},
 };
 
-void memdump(BYTE* mem, int size)
-{
-	int i;
-
-	for (i = 0; i < size; i ++)
-	{
-		printf("%02x ", mem[i]);
-	}
-}
-
 
 BOOL test_ncopy()
 {
@@ -467,9 +468,8 @@ BOOL test_ncopy()
 
 		if (0 != memcmp(mestination, expected, width * dstlen))
 		{
-			printf("%s:%d: Test %s:[%d]  ncopy(%s, source = {",
-			       __FILE__, __LINE__, __FUNCTION__, i,
-			       widechar ? "WCHAR" : "BYTE");
+                        printref();
+			printf("[%d]  ncopy(%s, source = {", i, widechar ? "WCHAR" : "BYTE");
 			memdump(source, width * srclen);
 			printf("}, destination = {");
 			memdump(destination, width * dstlen);
@@ -487,53 +487,196 @@ BOOL test_ncopy()
 }
 
 
+static struct
+{
+	int widechar;
+	BOOL expected;
+	union
+	{
+		struct
+		{
+                        BYTE string[32];
+			BYTE substring[32];
+		} bytes;
+		struct
+		{
+			WCHAR string[32];
+			BYTE substring[32];
+		} wchars;
+	} strings;
+} contains_tests[] = {
+        { 0, 1, { .bytes = {"",   ""}} },
+        { 0, 1, { .bytes = {"foo",""}} },
+        { 0, 0, { .bytes = {"",   "foo"}} },
+        { 0, 1, { .bytes = {"foo","foo"}} },
+        { 0, 1, { .bytes = {"fooprefix","foo"}} },
+        { 0, 1, { .bytes = {"suffixfoo","foo"}} },
+        { 0, 1, { .bytes = {"inthefoomiddle","foo"}} },
+        { 0, 0, { .bytes = {"foo","bar"}} },
+        { 0, 0, { .bytes = {"fooprefix","bar"}} },
+        { 0, 0, { .bytes = {"suffixfoo","bar"}} },
+        { 0, 0, { .bytes = {"inthefoomiddle","bar"}} },
+        { 1, 1, { .wchars = {{0},  ""}}},
+        { 1, 1, { .wchars = {{'f', 'o', 'o', 0}, "" }}},
+        { 1, 0, { .wchars = {{0},   "foo" }}},
+        { 1, 1, { .wchars = {{'f', 'o', 'o', 0}, "foo"}}},
+        { 1, 1, { .wchars = {{'f', 'o', 'o', 'p', 'r', 'e', 'f', 'i', 'x', 0}, "foo" }}},
+        { 1, 1, { .wchars = {{'s', 'u', 'f', 'f', 'i', 'x', 'f', 'o', 'o', 0}, "foo" }}},
+        { 1, 1, { .wchars = {{'i', 'n', 't', 'h', 'e', 'f', 'o', 'o', 'm', 'i', 'd', 'd', 'l', 'e', 0},"foo" }}},
+        { 1, 0, { .wchars = {{'f', 'o', 'o', 0},  "bar" }}},
+        { 1, 0, { .wchars = {{'f', 'o', 'o', 'p', 'r', 'e', 'f', 'i', 'x', 0},  "bar" }}},
+        { 1, 0, { .wchars = {{'s', 'u', 'f', 'f', 'i', 'x', 'f', 'o', 'o', 0}, "bar" }}},
+        { 1, 0, { .wchars = {{'i', 'n', 't', 'h', 'e', 'f', 'o', 'o', 'm', 'i', 'd', 'd', 'l', 'e', 0}, "bar" }}},
+};
 
 
-/* ncopy(str, destination, source, count) */
-/*  */
-/* str is the string_funs for the given string. */
-/* destination is either a char or wide char string, same as source. */
-/* source is either a char or wide char string. */
-/*  */
-/* ncopy copies exactly count characters  (char or wide char) from source */
-/* to destination, including null characters if any, and beyond.  No null is added. */
-/*  *\/ */
-/* void ncopy(struct string_funs * str, BYTE * destination, BYTE * source, int count) */
-/*  */
-/*          */
-/* /\**  */
-/* contains(str, string, substring) */
-/*  */
-/* str is the string_funs for the given string. */
-/* string is either a char or wide char string. */
-/* substring is a char string. */
-/*  */
-/* Both strings are 0-terminated. */
-/*  */
-/* contains returns whether substring is a substring of string. */
-/*  *\/   */
-/* BOOL contains(struct string_funs * str, BYTE * string, char * substring); */
-/*  */
-/*  */
-/*  */
-/* /\**  */
-/* LinkedList_StringHasSubstring(str, string, list) */
-/*  */
-/* str is the string_funs for the given string. */
-/* string is either a char or wide char string. */
-/* list is a wLinkedList of char strings. */
-/*  */
-/* All strings are 0-terminated. */
-/*  */
-/* LinkedList_StringHasSubstring returns whether at least one of the */
-/* strings in the list is a substring of string. */
-/*  *\/ */
-/* BOOL LinkedList_StringHasSubstring(struct string_funs * str, BYTE * string, wLinkedList* list); */
-/*  */
-/*  */
-/*  */
-/*  */
-/* /\**  */
+BOOL test_contains()
+{
+	BOOL success = TRUE;
+	int i;
+
+	for (i = 0; i < countof(contains_tests); i ++)
+	{
+		int widechar = contains_tests[i].widechar;
+		struct string_funs* fun = & string_funs[widechar];
+		BOOL expected = contains_tests[i].expected;
+		BYTE* string = (widechar
+                        ? (BYTE*)contains_tests[i].strings.wchars.string
+                        : contains_tests[i].strings.bytes.string);
+		BYTE* substring = (widechar
+		                     ? (BYTE*)contains_tests[i].strings.wchars.substring
+		                     : contains_tests[i].strings.bytes.substring);
+                BOOL result = contains(fun, string, substring);
+
+		if ((result &&  !expected) || (!result && expected))
+		{
+                        BYTE * out_of_memory =(BYTE *)"OUT OF MEMORY";
+                        BYTE * cstring;
+                        if (widechar)
+                        {
+                                convert_to_utf8(string, cstring);
+                        }
+                        else
+                        {
+                                cstring = (BYTE *)strdup((char * )string);
+                        }
+
+                        printref();
+			printf("[%d]  contains(%s, string = \"%s\", substring = \"%s\") -> %s,  expected %s\n",
+                                i,
+                                (widechar ? "WCHAR" : "BYTE"),
+                                cstring?cstring:out_of_memory,
+                                substring,
+                                (result?"TRUE":"FALSE"),
+                                (expected?"TRUE":"FALSE"));
+                        if (cstring != out_of_memory)
+                        {
+                                free(cstring);
+                        }
+			success = FALSE;
+		}
+	}
+	return success;
+}
+
+
+
+static struct
+{
+	int widechar;
+	BOOL expected;
+	union
+	{
+                BYTE bytes[32];
+                WCHAR wchars[32];
+	} string;
+        const char * substrings[32];
+} stringhassubstrings[] = {
+        { 0, 0, { .bytes = ""}, { "foo", "bar", "baz", 0} },
+        { 0, 1, { .bytes = ""}, { "foo", "bar", "", "baz", 0} },
+        { 0, 0, { .bytes = "foo"}, { "food", "foot", "bar", "aa", 0}},
+        { 0, 1, { .bytes = "foo"}, { "food", "foot", "foo", "bar", "aa", 0}},
+        { 0, 1, { .bytes = "foo"}, { "food", "foot", "bar", "oo", "quux", 0}},
+        { 0, 1, { .bytes = "foo"}, { "food", "foot", "bar", "fo", "quux", 0}},
+        { 0, 1, { .bytes = "foo"}, { "food", "foot", "bar", "o", "quux", 0}},
+        { 0, 0, { .bytes = ""}, {0} },
+        { 0, 0, { .bytes = "foo"}, {0} },
+        { 1, 0, { .wchars = {0}}, { "foo", "bar", "baz", 0} },
+        { 1, 1, { .wchars = {0}}, { "foo", "bar", "", "baz", 0} },
+        { 1, 0, { .wchars = {'f', 'o', 'o', 0}}, { "food", "foot", "bar", "aa", 0}},
+        { 1, 1, { .wchars = {'f', 'o', 'o', 0}}, { "food", "foot", "foo", "bar", "aa", 0}},
+        { 1, 1, { .wchars = {'f', 'o', 'o', 0}}, { "food", "foot", "bar", "oo", "quux", 0}},
+        { 1, 1, { .wchars = {'f', 'o', 'o', 0}}, { "food", "foot", "bar", "fo", "quux", 0}},
+        { 1, 1, { .wchars = {'f', 'o', 'o', 0}}, { "food", "foot", "bar", "o", "quux", 0}},
+        { 1, 0, { .wchars = {0}}, {0} },
+        { 1, 0, { .wchars = {'f', 'o', 'o', 0}}, {0} },
+};
+
+
+void LinkedList_PrintStrings(wLinkedList* list);
+BOOL test_stringhassubstrings()
+{
+	BOOL success = TRUE;
+	int i;
+
+	for (i = 0; i < countof(stringhassubstrings); i ++)
+	{
+                int j;
+		int widechar = stringhassubstrings[i].widechar;
+		struct string_funs* fun = & string_funs[widechar];
+		BOOL expected = stringhassubstrings[i].expected;
+		BYTE* string = (widechar
+                        ? (BYTE*)stringhassubstrings[i].string.wchars
+                        : stringhassubstrings[i].string.bytes);
+
+                int nsubstrings = string_list_length(stringhassubstrings[i].substrings);
+                wLinkedList * list = LinkedList_New();
+                if (!list)
+                {
+                        printref();
+                        printf("FAILURE: Cannot allocate new linked list.\n");
+                        return FALSE;
+                }
+                for (j = 0;j < nsubstrings;j ++ )
+                {
+                        LinkedList_AddLast(list,(void *)(stringhassubstrings[i].substrings[j]));
+                }
+
+                BOOL result = LinkedList_StringHasSubstring(fun, string, list);
+
+		if ((result &&  !expected) || (!result && expected))
+		{
+                        BYTE * out_of_memory =(BYTE *)"OUT OF MEMORY";
+                        BYTE * cstring;
+                        if (widechar)
+                        {
+                                convert_to_utf8(string, cstring);
+                        }
+                        else
+                        {
+                                cstring = (BYTE *)strdup((char * )string);
+                        }
+
+                        printref();
+			printf("[%d]  LinkedList_StringHasSubstring(%s, string = \"%s\", substrings = ",
+                                i,
+                                (widechar ? "WCHAR" : "BYTE"),
+                                cstring?cstring:out_of_memory);
+                        LinkedList_PrintStrings(list);
+                        printf(") -> %s,  expected %s\n",
+                                (result?"TRUE":"FALSE"),
+                                (expected?"TRUE":"FALSE"));
+                        if (cstring != out_of_memory)
+                        {
+                                free(cstring);
+                        }
+			success = FALSE;
+		}
+	}
+	return success;
+}
+
+
 /* mszFilterStrings(widechar, mszStrings, cchStrings, substrings) */
 /*  */
 /* widechar indicates whether mszStrings contains char strings or wide char strings. */
@@ -567,5 +710,7 @@ int TestStr(int argc, char* argv[])
 	success &= test_compare();
 	success &= test_ncompare();
 	success &= test_ncopy();
+        success &= test_contains();
+        success &= test_stringhassubstrings();
 	return success ? 0 : -1;
 }

@@ -137,7 +137,7 @@ BOOL contains(struct string_funs* str, BYTE* string, BYTE* substring)
 	int end = wlen - slen;
 	int i = 0;
 
-	for (i = 0; i < end; i ++)
+	for (i = 0; i <= end; i ++)
 	{
 		if (ncompare(str, str->inc(string, i), substring, slen) == 0)
 		{
@@ -161,19 +161,15 @@ void ncopy(struct string_funs* str, BYTE* destination, BYTE* source, int count)
 
 BOOL LinkedList_StringHasSubstring(struct string_funs* str, BYTE* string, wLinkedList* list)
 {
-	wLinkedListNode* current;
-	wLinkedListNode* last = LinkedList_Last(list);
-
-	for (current = LinkedList_First(list);
-	     current != last; current = current->next)
-	{
-		if (contains(str, string, current->value))
-		{
-			return FALSE;
-		}
-	}
-
-	return TRUE;
+        LinkedList_Enumerator_Reset(list);
+        while (LinkedList_Enumerator_MoveNext(list))
+        {
+                if (contains(str, string, LinkedList_Enumerator_Current(list)))
+                {
+                        return TRUE;
+                }
+        }
+	return FALSE;
 }
 
 void mszFilterStrings(BOOL widechar, LPSTR mszReaders, DWORD* cchReaders, wLinkedList* substrings)
