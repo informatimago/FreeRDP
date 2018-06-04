@@ -322,6 +322,12 @@ int CommandLineParseArgumentsA(int argc, LPSTR* argv, COMMAND_LINE_ARGUMENT_A* o
 
 						options[j].Flags |= COMMAND_LINE_VALUE_PRESENT;
 					}
+					else
+					{
+						/*   We need to reset the value when an option is given several times,  including one without a value! */
+						options[j].Value = NULL;
+						options[j].Flags &= ~COMMAND_LINE_VALUE_PRESENT;
+					}
 				}
 
 				if (postFilter)

@@ -236,6 +236,22 @@ BOOL LinkedList_StringIsMember(wLinkedList* list, const char* string)
 	return LinkedList_ContainsWithEqual(list, (void*) string, String_Equal);
 }
 
+
+void LinkedList_PrintStrings(wLinkedList* list)
+{
+	const char*   separator = "";
+	printf("(");
+	LinkedList_Enumerator_Reset(list);
+
+	while (LinkedList_Enumerator_MoveNext(list))
+	{
+		printf("%s\"%s\"", separator,  LinkedList_Enumerator_Current(list));
+		separator = " ";
+	}
+
+	printf(")\n");
+}
+
 static BOOL all_smartcard_devices_are_redirected(rdpSettings* settings)
 {
 	RDPDR_SMARTCARD* smartcard = (RDPDR_SMARTCARD*)freerdp_device_collection_find_type(settings,
@@ -287,80 +303,91 @@ fail:
 	return FALSE;
 }
 
-static BOOL redirect_all_smartcard_devices(rdpSettings* settings)
+
+static BOOL add_device_filter(wLinkedList* deviceFilter, const char* name)
 {
-	printf("%s:%d: %s()\n", __FILE__, __LINE__, __FUNCTION__);
-	RDPDR_SMARTCARD* smartcard = (RDPDR_SMARTCARD*)freerdp_device_collection_find_type(settings,
-	                             RDPDR_DTYP_SMARTCARD);
-
-	if (smartcard)
+	if (!LinkedList_AddLast(deviceFilter, (void*)name))
 	{
-		LinkedList_Clear(smartcard->deviceFilter);
-
-		if (!LinkedList_AddLast(smartcard->deviceFilter, ""))
-		{
-			return FALSE;
-		}
-	}
-	else
-	{
-		if (!add_smartcard_device(settings, ""))
-		{
-			return FALSE;
-		}
-	}
-
-	settings->RedirectSmartCards = TRUE;
-	settings->DeviceRedirection = TRUE;
-	return TRUE;
-}
-
-static BOOL redirect_smartcard_device(rdpSettings* settings, const char* name)
-{
-	RDPDR_SMARTCARD* smartcard = 0;
-
-	if (!name)
-	{
-		WLog_ERR(TAG,
-		         "INTERNAL Cannot redirect a smartcard device with no name. Try  redirect_all_smartcard_devices() instead.");
+		WLog_ERR(TAG, "Couldn't add smartcard device filter \"%s\"", name);
 		return FALSE;
 	}
 
-	printf("%s:%d: %s(%s)\n", __FILE__, __LINE__, __FUNCTION__, name);
+	return TRUE;
+}
+
+BOOL redirect_smartcard_device(rdpSettings* settings, const char* name)
+{
+	RDPDR_SMARTCARD* smartcard = 0;
+	char*   filter;
+	printf("%s:%d: %s(\"%s\")\n", __FILE__, __LINE__, __FUNCTION__, name);
 
 	if (all_smartcard_devices_are_redirected(settings))
 	{
 		return TRUE;
 	}
 
+	filter = strdup(name);
+
+	if (!filter)
+	{
+		WLog_ERR(TAG, "Couldn't duplicate filter name.");
+		return FALSE;
+	}
+
 	smartcard = (RDPDR_SMARTCARD*)freerdp_device_collection_find_type(settings, RDPDR_DTYP_SMARTCARD);
 
-	if (!smartcard)
+	if (smartcard)
 	{
-		if (!add_smartcard_device(settings, name))
+		if (0 == strcmp("", filter))
+		{
+			LinkedList_Clear(smartcard->deviceFilter);
+
+			if (!add_device_filter(smartcard->deviceFilter, filter))
+			{
+				return FALSE;
+			}
+		}
+		else
+		{
+			/* More precisely,  we could test for name being a super-string
+			of the strings in smartcard->deviceFilter */
+			if (!LinkedList_StringIsMember(smartcard->deviceFilter, filter))
+			{
+				if (!add_device_filter(smartcard->deviceFilter, filter))
+				{
+					return FALSE;
+				}
+			}
+		}
+
+		/* DEBUG */ printf("%s:%d: %s() deviceFilter = ", __FILE__, __LINE__, __FUNCTION__);
+		/* DEBUG */ LinkedList_PrintStrings(smartcard->deviceFilter);
+	}
+	else
+	{
+		if (!add_smartcard_device(settings, filter))
 		{
 			WLog_ERR(TAG, "Couldn't add smartcard device filter record");
 			return FALSE;
 		}
 
-		smartcard = (RDPDR_SMARTCARD*)freerdp_device_collection_find_type(settings, RDPDR_DTYP_SMARTCARD);
-	}
-
-	/* More precisely,  we could test for name being a super-string
-	of the strings in smartcard->deviceFilter */
-	if (!LinkedList_StringIsMember(smartcard->deviceFilter, name))
-	{
-		if (!LinkedList_AddLast(smartcard->deviceFilter, (void*)name))
-		{
-			WLog_ERR(TAG, "Couldn't add device filter %s", name);
-			return FALSE;
-		}
+		/* DEBUG */ smartcard = (RDPDR_SMARTCARD*)freerdp_device_collection_find_type(settings,
+		                        RDPDR_DTYP_SMARTCARD);
+		/* DEBUG */ printf("%s:%d: %s() deviceFilter = ", __FILE__, __LINE__, __FUNCTION__);
+		/* DEBUG */ LinkedList_PrintStrings(smartcard->deviceFilter);
 	}
 
 	settings->RedirectSmartCards = TRUE;
 	settings->DeviceRedirection = TRUE;
 	return TRUE;
 }
+
+BOOL redirect_all_smartcard_devices(rdpSettings* settings)
+{
+	printf("%s:%d: %s()\n", __FILE__, __LINE__, __FUNCTION__);
+	return redirect_smartcard_device(settings, "");
+}
+
 
 
 BOOL freerdp_client_add_device_channel(rdpSettings* settings, int count,
@@ -875,15 +902,6 @@ static int freerdp_client_command_line_post_filter(void* context,
 		status = freerdp_client_add_device_channel(settings, count, p);
 		free(p);
 	}
-	CommandLineSwitchCase(arg, "smartcard")
-	{
-		char** p;
-		size_t count;
-		p = freerdp_command_line_parse_comma_separated_values_offset(arg->Name, arg->Value,
-		        &count);
-		status = freerdp_client_add_device_channel(settings, count, p);
-		free(p);
-	}
 	CommandLineSwitchCase(arg, "printer")
 	{
 		char** p;
@@ -900,6 +918,15 @@ static int freerdp_client_command_line_post_filter(void* context,
 		p = freerdp_command_line_parse_comma_separated_values_offset("urbdrc", arg->Value,
 		        &count);
 		status = freerdp_client_add_dynamic_channel(settings, count, p);
+		free(p);
+	}
+	CommandLineSwitchCase(arg, "smartcard")
+	{
+		char** p;
+		size_t count;
+		p = freerdp_command_line_parse_comma_separated_values_offset(arg->Name, arg->Value,
+		        &count);
+		status = freerdp_client_add_device_channel(settings, count, p);
 		free(p);
 	}
 	CommandLineSwitchCase(arg, "multitouch")

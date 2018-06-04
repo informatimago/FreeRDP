@@ -87,6 +87,7 @@ BOOL String_Equal(void* a, void* b)
 	return 0 == strcmp(a, b);
 }
 
+
 BOOL LinkedList_ContainsWithEqual(wLinkedList* list, void* value, EqualPr equal)
 {
 	wLinkedListNode* item;
