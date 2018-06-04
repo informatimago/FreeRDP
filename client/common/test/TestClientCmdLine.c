@@ -4,9 +4,24 @@
 #include <winpr/cmdline.h>
 #include <winpr/spec.h>
 
+void LinkedList_PrintStrings(wLinkedList* list);
+
 typedef BOOL (*validate_settings_pr)(rdpSettings* settings);
 
-#define print_ref() printf("%s:%d: Test %s failed: ", __FILE__, __LINE__, __FUNCTION__)
+#define print_ref() printf("%s:%d: FAILED TEST %-40s: ", __FILE__, __LINE__, __FUNCTION__)
+
+static void print_test_title(int argc, char** argv)
+{
+	int i;
+	printf("Running test:");
+
+	for (i = 0; i < argc; i ++)
+	{
+		printf(" %s", argv[i]);
+	}
+
+	printf("\n");
+}
 
 static INLINE BOOL testcase(const char* name, char** argv, size_t argc,
                             int expected_return, validate_settings_pr validate_settings)
@@ -14,7 +29,7 @@ static INLINE BOOL testcase(const char* name, char** argv, size_t argc,
 	int status;
 	BOOL valid_settings = TRUE;
 	rdpSettings* settings = freerdp_settings_new(0);
-	printf("Running test %s\n", name);
+	print_test_title(argc, argv);
 
 	if (!settings)
 	{
@@ -162,6 +177,9 @@ static BOOL expect_smartcard_device_filter_contains(rdpSettings* settings, const
 	{
 		print_ref();
 		printf("Device filter list does not contain \"%s\"\n", filter);
+		print_ref();
+		printf("deviceFilter = ");
+		LinkedList_PrintStrings(device->deviceFilter);
 		debugger();
 		return FALSE;
 	}

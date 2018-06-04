@@ -1,32 +1,32 @@
-
+#include <stdio.h>
+#include <winpr/wtypes.h>
 #include "../str.h"
 
-#define check(expression, compare, expected, format) \
-        check_internal(expression, compare, expected, format, result##__LINE__)
-#define check_internal(expression, compare, expected, format, result) \
-        {                                                                                       \
-                typeof(expression) result = expression;                                         \
-                if (!(result compare expected))                                                 \
-                {                                                                               \
-                        printf("%s:%d: Test %s,  %s %s %s failed!\n",                           \
-                                __FILE__, __LINE__,__FUNCTION__,                                \
-                                #expression, #compare, #expected);                              \
-                        printf(" %s resulted in "format"\n", #expression,  result);             \
-                        return FALSE;                                                           \
-                }                                                                               \
-        }
-
+#define check(expression, compare, expected, format)                            \
+	check_internal(expression, compare, expected, format, result##__LINE__)
+#define check_internal(expression, compare, expected, format, result)                   \
+	{                                                                               \
+		typeof(expression) result = expression;                                 \
+		if (!(result compare expected))                                         \
+		{                                                                       \
+			printf("%s:%d: Test %s,  %s %s %s failed!\n",                   \
+			       __FILE__, __LINE__,__FUNCTION__,                        \
+			       #expression, #compare, #expected);                      \
+			printf(" %s resulted in "format"\n", #expression,  result);     \
+			return FALSE;                                                   \
+		}                                                                       \
+	}
 
 
 BOOL test_ref(struct string_funs* fun,  BYTE* string)
 {
-        check(fun->ref(string, 0), ==, 'h', "%d");
-        check(fun->ref(string, 1), ==, 'e', "%d");
-        check(fun->ref(string, 2), ==, 'l', "%d");
-        check(fun->ref(string, 3), ==, 'l', "%d");
-        check(fun->ref(string, 4), ==, 'o', "%d");
-        check(fun->ref(string, 5), ==,  0,  "%d");
-        return TRUE;
+	check(fun->ref(string, 0), == , 'h', "%d");
+	check(fun->ref(string, 1), == , 'e', "%d");
+	check(fun->ref(string, 2), == , 'l', "%d");
+	check(fun->ref(string, 3), == , 'l', "%d");
+	check(fun->ref(string, 4), == , 'o', "%d");
+	check(fun->ref(string, 5), == ,  0,  "%d");
+	return TRUE;
 }
 
 BOOL test_aref()
@@ -44,14 +44,14 @@ BOOL test_wref()
 
 BOOL test_set(struct string_funs* fun,  BYTE* string)
 {
-        fun->set(string, 2, 'w');
-        check(fun->ref(string, 0), ==, 'h', "%d");
-        check(fun->ref(string, 1), ==, 'e', "%d");
-        check(fun->ref(string, 2), ==, 'w', "%d");
-        check(fun->ref(string, 3), ==, 'l', "%d");
-        check(fun->ref(string, 4), ==, 'o', "%d");
-        check(fun->ref(string, 5), ==, 0, "%d");
-        return TRUE;
+	fun->set(string, 2, 'w');
+	check(fun->ref(string, 0), == , 'h', "%d");
+	check(fun->ref(string, 1), == , 'e', "%d");
+	check(fun->ref(string, 2), == , 'w', "%d");
+	check(fun->ref(string, 3), == , 'l', "%d");
+	check(fun->ref(string, 4), == , 'o', "%d");
+	check(fun->ref(string, 5), == , 0, "%d");
+	return TRUE;
 }
 
 BOOL test_aset()
@@ -70,10 +70,10 @@ BOOL test_wset()
 
 BOOL test_len(struct string_funs* fun,  BYTE* empty, BYTE* shortstr, BYTE* longstr)
 {
-        check(fun->len(empty), ==, 0, "%d");
-        check(fun->len(shortstr), ==, 5, "%d");
-        check(fun->len(longstr), ==, 27, "%d");
-        return TRUE;
+	check(fun->len(empty), == , 0, "%d");
+	check(fun->len(shortstr), == , 5, "%d");
+	check(fun->len(longstr), == , 27, "%d");
+	return TRUE;
 }
 
 BOOL test_alen()
@@ -95,14 +95,14 @@ BOOL test_wlen()
 
 BOOL test_inc(struct string_funs* fun,  BYTE* string)
 {
-        BYTE * next = fun->inc(string, 0);
-        check(next, ==, string, "%s");
-        check(fun->ref(next, 0), ==, 'h', "%d");
-        next = fun->inc(next, 6);
-        check(fun->ref(next, 0), ==, 'w', "%d");
-        next = fun->inc(next, 7);
-        check(fun->ref(next, 0), ==, 'h', "%d");
-        return TRUE;
+	BYTE* next = fun->inc(string, 0);
+	check(next, == , string, "%s");
+	check(fun->ref(next, 0), == , 'h', "%d");
+	next = fun->inc(next, 6);
+	check(fun->ref(next, 0), == , 'w', "%d");
+	next = fun->inc(next, 7);
+	check(fun->ref(next, 0), == , 'h', "%d");
+	return TRUE;
 }
 
 BOOL test_ainc()

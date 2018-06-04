@@ -18,11 +18,11 @@ int TestLinkedList(int argc, char* argv[])
 	if (count != 3)
 	{
 		printref();
-                printf("LinkedList_Count: expected 3, actual: %d\n",count);
+		printf("LinkedList_Count: expected 3, actual: %d\n", count);
 		return -1;
 	}
-        LinkedList_Free(list);
 
+	LinkedList_Free(list);
 	list = LinkedList_New();
 	LinkedList_AddLast(list, (void*)(size_t) 1);
 	LinkedList_AddLast(list, (void*)(size_t) 2);
