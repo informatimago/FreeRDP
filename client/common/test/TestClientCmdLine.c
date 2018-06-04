@@ -11,10 +11,10 @@ typedef BOOL (*validate_settings_pr)(rdpSettings* settings);
 #define print_ref() printf("%s:%d: Test %s failed: ", __FILE__, __LINE__, __FUNCTION__)
 
 static INLINE BOOL testcase(const char* name, char** argv, size_t argc,
-        int expected_return, validate_settings_pr validate_settings)
+                            int expected_return, validate_settings_pr validate_settings)
 {
 	int status;
-        BOOL valid_settings = TRUE;
+	BOOL valid_settings = TRUE;
 	rdpSettings* settings = freerdp_settings_new(0);
 	int i;
 	printf("Running test:");
@@ -28,36 +28,40 @@ static INLINE BOOL testcase(const char* name, char** argv, size_t argc,
 
 	if (!settings)
 	{
-		print_ref(); printf("Test %s could not allocate settings!\n", name);
+		print_ref();
+		printf("Test %s could not allocate settings!\n", name);
 		fflush(stdout);
 		return FALSE;
 	}
 
 	status = freerdp_client_settings_parse_command_line(settings, argc, argv, FALSE);
-        if (validate_settings)
-        {
-                valid_settings = validate_settings(settings);
-        }
+
+	if (validate_settings)
+	{
+		valid_settings = validate_settings(settings);
+	}
+
 	freerdp_settings_free(settings);
 
 	if (status == expected_return)
-        {
-                if (!valid_settings){
-                        goto fail;
-
-                }
-        }
-        else
 	{
-		print_ref(); printf("Expected status %d,  got status %d\n", expected_return, status);
-                goto fail;
+		if (!valid_settings)
+		{
+			goto fail;
+		}
+	}
+	else
+	{
+		print_ref();
+		printf("Expected status %d,  got status %d\n", expected_return, status);
+		goto fail;
 	}
 
 	return TRUE;
 fail:
-        printf("Test %s failed!\n", name);
-        fflush(stdout);
-        return FALSE;
+	printf("Test %s failed!\n", name);
+	fflush(stdout);
+	return FALSE;
 }
 
 #if defined(_WIN32)
@@ -78,157 +82,181 @@ string is 0-terminated.
 LinkedList_ContainsString returns whether it contains a string that is
 strcmp equal to string.
  */
-static BOOL LinkedList_ContainsString(wLinkedList* list, const char * string)
+static BOOL LinkedList_ContainsString(wLinkedList* list, const char* string)
 {
-        return LinkedList_ContainsWithEqual(list, (void *)string, String_Equal);
+	return LinkedList_ContainsWithEqual(list, (void*)string, String_Equal);
 }
 
 
 static BOOL check_settings_smartcard_no_redirection(rdpSettings* settings)
 {
-        BOOL result = TRUE;
-        if(settings->RedirectSmartCards)
-        {
-		print_ref(); printf("Expected RedirectSmartCards = FALSE,  but RedirectSmartCards = TRUE!\n");
-                result = FALSE;
-        }
+	BOOL result = TRUE;
 
-        if (freerdp_device_collection_find_type(settings, RDPDR_DTYP_SMARTCARD))
-        {
-                print_ref(); printf("Expected no SMARTCARD device, but found at least one!\n");
-                result = FALSE;
-        }
-        return result;
+	if (settings->RedirectSmartCards)
+	{
+		print_ref();
+		printf("Expected RedirectSmartCards = FALSE,  but RedirectSmartCards = TRUE!\n");
+		result = FALSE;
+	}
+
+	if (freerdp_device_collection_find_type(settings, RDPDR_DTYP_SMARTCARD))
+	{
+		print_ref();
+		printf("Expected no SMARTCARD device, but found at least one!\n");
+		result = FALSE;
+	}
+
+	return result;
 }
 
-static const char * smartcard_device_name_one = "Xiring";
-static const char * smartcard_device_name_two = "NeoWave";
+static const char* smartcard_device_name_one = "Xiring";
+static const char* smartcard_device_name_two = "NeoWave";
 
 void debugger()
 {
-        printf("hi!\n");
+	printf("hi!\n");
 }
 
 
-static BOOL expect_smartcard_device_filter_contains(rdpSettings* settings, const char *filter)
+static BOOL expect_smartcard_device_filter_contains(rdpSettings* settings, const char* filter)
 {
-        RDPDR_SMARTCARD* device = (RDPDR_SMARTCARD*)freerdp_device_collection_find_type(settings, RDPDR_DTYP_SMARTCARD);
-        if (!device)
-        {
-                print_ref(); printf("Expected to find smartcard device record, but found none!\n");
-                return FALSE;
-        }
-        if(!device->deviceFilter)
-        {
-                print_ref(); printf("Device filter list not initialized!\n");
-                return FALSE;
-        }
-        if(!LinkedList_ContainsString(device->deviceFilter,filter))
-        {
-                print_ref(); printf("Device filter list does not contain \"%s\"\n", filter);
-                debugger();
-                return FALSE;
-        }
-        return TRUE;
+	RDPDR_SMARTCARD* device = (RDPDR_SMARTCARD*)freerdp_device_collection_find_type(settings,
+	                          RDPDR_DTYP_SMARTCARD);
+
+	if (!device)
+	{
+		print_ref();
+		printf("Expected to find smartcard device record, but found none!\n");
+		return FALSE;
+	}
+
+	if (!device->deviceFilter)
+	{
+		print_ref();
+		printf("Device filter list not initialized!\n");
+		return FALSE;
+	}
+
+	if (!LinkedList_ContainsString(device->deviceFilter, filter))
+	{
+		print_ref();
+		printf("Device filter list does not contain \"%s\"\n", filter);
+		debugger();
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 static BOOL expect_one_smartcard_device(rdpSettings* settings)
 {
-        UINT32 count;
-        BOOL result = TRUE;
-        count = freerdp_device_collection_count_type(settings, RDPDR_DTYP_SMARTCARD);
-        if (1 != count)
-        {
-                print_ref(); printf("Expected ONE smartcard device, but found %d!\n", count);
-                result = FALSE;
-        }
-        if (1 <= count)
-        {
-                if(!freerdp_device_collection_find_type(settings, RDPDR_DTYP_SMARTCARD))
-                {
-                        print_ref(); printf("Expected ONE smartcard device record, but found none!\n");
-                        result = FALSE;
-                }
-        }
-        return result;
+	UINT32 count;
+	BOOL result = TRUE;
+	count = freerdp_device_collection_count_type(settings, RDPDR_DTYP_SMARTCARD);
+
+	if (1 != count)
+	{
+		print_ref();
+		printf("Expected ONE smartcard device, but found %d!\n", count);
+		result = FALSE;
+	}
+
+	if (1 <= count)
+	{
+		if (!freerdp_device_collection_find_type(settings, RDPDR_DTYP_SMARTCARD))
+		{
+			print_ref();
+			printf("Expected ONE smartcard device record, but found none!\n");
+			result = FALSE;
+		}
+	}
+
+	return result;
 }
 
 
 static BOOL check_settings_smartcard_redirect_all(rdpSettings* settings)
 {
-        BOOL result = TRUE;
-        if(!settings->RedirectSmartCards)
-        {
-		print_ref(); printf("Expected RedirectSmartCards = TRUE,  but RedirectSmartCards = FALSE!\n");
-                result = FALSE;
-        }
+	BOOL result = TRUE;
 
-        if(!expect_one_smartcard_device(settings))
-        {
-                result = FALSE;
-        }
+	if (!settings->RedirectSmartCards)
+	{
+		print_ref();
+		printf("Expected RedirectSmartCards = TRUE,  but RedirectSmartCards = FALSE!\n");
+		result = FALSE;
+	}
 
-        if (!expect_smartcard_device_filter_contains(settings, ""))
-        {
-                result = FALSE;
-        }
-        return result;
+	if (!expect_one_smartcard_device(settings))
+	{
+		result = FALSE;
+	}
+
+	if (!expect_smartcard_device_filter_contains(settings, ""))
+	{
+		result = FALSE;
+	}
+
+	return result;
 }
 
 static BOOL check_settings_smartcard_redirect_one(rdpSettings* settings)
 {
-        BOOL result = TRUE;
-        if(!settings->RedirectSmartCards)
-        {
-		print_ref(); printf("Expected RedirectSmartCards = TRUE,  but RedirectSmartCards = FALSE!\n");
-                result = FALSE;
-        }
+	BOOL result = TRUE;
 
-        if(!expect_one_smartcard_device(settings))
-        {
-                result = FALSE;
-        }
+	if (!settings->RedirectSmartCards)
+	{
+		print_ref();
+		printf("Expected RedirectSmartCards = TRUE,  but RedirectSmartCards = FALSE!\n");
+		result = FALSE;
+	}
 
-        if(!expect_smartcard_device_filter_contains(settings, smartcard_device_name_one))
-        {
-                result = FALSE;
-        }
+	if (!expect_one_smartcard_device(settings))
+	{
+		result = FALSE;
+	}
 
-        return result;
+	if (!expect_smartcard_device_filter_contains(settings, smartcard_device_name_one))
+	{
+		result = FALSE;
+	}
+
+	return result;
 }
 
 static BOOL check_settings_smartcard_redirect_two(rdpSettings* settings)
 {
-        BOOL result = TRUE;
-        if(!settings->RedirectSmartCards)
-        {
-		print_ref(); printf("Expected RedirectSmartCards = TRUE,  but RedirectSmartCards = FALSE!\n");
-                result = FALSE;
-        }
+	BOOL result = TRUE;
 
-        if(!expect_one_smartcard_device(settings))
-        {
-                result = FALSE;
-        }
+	if (!settings->RedirectSmartCards)
+	{
+		print_ref();
+		printf("Expected RedirectSmartCards = TRUE,  but RedirectSmartCards = FALSE!\n");
+		result = FALSE;
+	}
 
-        if(!expect_smartcard_device_filter_contains(settings, smartcard_device_name_one))
-        {
-                result = FALSE;
-        }
+	if (!expect_one_smartcard_device(settings))
+	{
+		result = FALSE;
+	}
 
-        if(!expect_smartcard_device_filter_contains(settings, smartcard_device_name_two))
-        {
-                result = FALSE;
-        }
+	if (!expect_smartcard_device_filter_contains(settings, smartcard_device_name_one))
+	{
+		result = FALSE;
+	}
 
-        return result;
+	if (!expect_smartcard_device_filter_contains(settings, smartcard_device_name_two))
+	{
+		result = FALSE;
+	}
+
+	return result;
 }
 
 
 typedef struct
 {
 	int expected_status;
-        validate_settings_pr validate_settings;
+	validate_settings_pr validate_settings;
 	const char* command_line[128];
 	struct
 	{
@@ -346,41 +374,41 @@ static test tests[] =
 	},
 
 
-        {
-                0,  check_settings_smartcard_redirect_all,
-                {"xfreerdp", "/smartcard", "/v:test.freerdp.com", 0},
+	{
+		0,  check_settings_smartcard_redirect_all,
+		{"xfreerdp", "/smartcard", "/v:test.freerdp.com", 0},
 		{{0}}
-        },
-        {
-                0, check_settings_smartcard_redirect_all,
-                {"xfreerdp", "/smartcard", "/smartcard:Xiring",  "/v:test.freerdp.com", 0},
+	},
+	{
+		0, check_settings_smartcard_redirect_all,
+		{"xfreerdp", "/smartcard", "/smartcard:Xiring",  "/v:test.freerdp.com", 0},
 		{{0}}
-        },
-        {
-                0, check_settings_smartcard_redirect_all,
-                {"xfreerdp",  "/smartcard:Xiring", "/smartcard", "/v:test.freerdp.com", 0},
+	},
+	{
+		0, check_settings_smartcard_redirect_all,
+		{"xfreerdp",  "/smartcard:Xiring", "/smartcard", "/v:test.freerdp.com", 0},
 		{{0}}
-        },
-        {
-                0,  check_settings_smartcard_redirect_one,
-                {"xfreerdp", "/smartcard:Xiring",  "/v:test.freerdp.com", 0},
+	},
+	{
+		0,  check_settings_smartcard_redirect_one,
+		{"xfreerdp", "/smartcard:Xiring",  "/v:test.freerdp.com", 0},
 		{{0}}
-        },
-        {
-                0,  check_settings_smartcard_redirect_one,
-                {"xfreerdp", "/smartcard:Xiring", "/smartcard:Xiring",  "/v:test.freerdp.com", 0},
+	},
+	{
+		0,  check_settings_smartcard_redirect_one,
+		{"xfreerdp", "/smartcard:Xiring", "/smartcard:Xiring",  "/v:test.freerdp.com", 0},
 		{{0}}
-        },
-        {
-                0,  check_settings_smartcard_redirect_two,
-                {"xfreerdp", "/smartcard:Xiring", "/smartcard:NeoWave" ,  "/v:test.freerdp.com", 0},
+	},
+	{
+		0,  check_settings_smartcard_redirect_two,
+		{"xfreerdp", "/smartcard:Xiring", "/smartcard:NeoWave" ,  "/v:test.freerdp.com", 0},
 		{{0}}
-        },
-        {
-                0,  check_settings_smartcard_redirect_two,
-                {"xfreerdp", "/smartcard:Xiring", "/smartcard:NeoWave", "/smartcard:Xiring", "/smartcard:NeoWave", "/v:test.freerdp.com", 0},
+	},
+	{
+		0,  check_settings_smartcard_redirect_two,
+		{"xfreerdp", "/smartcard:Xiring", "/smartcard:NeoWave", "/smartcard:Xiring", "/smartcard:NeoWave", "/v:test.freerdp.com", 0},
 		{{0}}
-        },
+	},
 
 #if 0
 	{
@@ -404,8 +432,9 @@ void check_modified_arguments(test* test, char** command_line, int* rc)
 
 		if (0 != strcmp(actual_argument, expected_argument))
 		{
-			print_ref(); printf("Failure: overridden argument %d is %s but it should be %s\n",
-			        index, actual_argument, expected_argument);
+			print_ref();
+			printf("Failure: overridden argument %d is %s but it should be %s\n",
+			       index, actual_argument, expected_argument);
 			fflush(stdout);
 			* rc = -1;
 		}
@@ -423,8 +452,8 @@ int TestClientCmdLine(int argc, char* argv[])
 		char** command_line = string_list_copy(tests[i].command_line);
 
 		if (!testcase(__FUNCTION__,
-                                command_line, string_list_length((const char * const*)command_line),
-                                tests[i].expected_status, tests[i].validate_settings))
+		              command_line, string_list_length((const char * const*)command_line),
+		              tests[i].expected_status, tests[i].validate_settings))
 		{
 			printf("Failure parsing arguments.\n");
 			failure = 1;
@@ -434,7 +463,7 @@ int TestClientCmdLine(int argc, char* argv[])
 
 		if (failure)
 		{
-			string_list_print(stdout, (const char* const*)command_line);
+			string_list_print(stdout, (const char * const*)command_line);
 			rc = -1;
 		}
 

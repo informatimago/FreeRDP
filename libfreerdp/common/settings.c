@@ -202,19 +202,22 @@ BOOL freerdp_device_collection_add(rdpSettings* settings, RDPDR_DEVICE* device)
 
 RDPDR_DEVICE* freerdp_device_collection_find(rdpSettings* settings, const char* name)
 {
-        /*
-        Return the first device with the same name (no anonymous device,
-        cf. freerdp_device_collection_find_type_and_name)
-        */
+	/*
+	Return the first device with the same name (no anonymous device,
+	cf. freerdp_device_collection_find_type_and_name)
+	*/
 	UINT32 index;
+
 	for (index = 0; index < settings->DeviceCount; index++)
 	{
 		RDPDR_DEVICE* device = (RDPDR_DEVICE*) settings->DeviceArray[index];
-                if (name &&  device->Name && (strcmp(device->Name, name) == 0))
-                {
-                        return device;
-                }
+
+		if (name &&  device->Name && (strcmp(device->Name, name) == 0))
+		{
+			return device;
+		}
 	}
+
 	return NULL;
 }
 
@@ -222,33 +225,38 @@ RDPDR_DEVICE* freerdp_device_collection_find(rdpSettings* settings, const char* 
 RDPDR_DEVICE* freerdp_device_collection_find_type(rdpSettings* settings, UINT32 type)
 {
 	UINT32 index;
+
 	for (index = 0; index < settings->DeviceCount; index++)
 	{
 		RDPDR_DEVICE* device = (RDPDR_DEVICE*) settings->DeviceArray[index];
+
 		if (device->Type == type)
-                {
+		{
 			return device;
-                }
+		}
 	}
 
 	return NULL;
 }
 
-RDPDR_DEVICE* freerdp_device_collection_find_type_and_name(rdpSettings* settings, UINT32 type, const char* name)
+RDPDR_DEVICE* freerdp_device_collection_find_type_and_name(rdpSettings* settings, UINT32 type,
+        const char* name)
 {
-        /*
-        Return the first device that has the given type and the same name, or no name if name is null.
-        */
+	/*
+	Return the first device that has the given type and the same name, or no name if name is null.
+	*/
 	UINT32 index;
+
 	for (index = 0; index < settings->DeviceCount; index++)
 	{
 		RDPDR_DEVICE* device = (RDPDR_DEVICE*) settings->DeviceArray[index];
-                if ((device->Type == type)
-                        && ((name == device->Name)
-                                || (name &&  device->Name && (strcmp(device->Name, name) == 0))))
-                {
+
+		if ((device->Type == type)
+		    && ((name == device->Name)
+		        || (name &&  device->Name && (strcmp(device->Name, name) == 0))))
+		{
 			return device;
-                }
+		}
 	}
 
 	return NULL;
@@ -256,16 +264,17 @@ RDPDR_DEVICE* freerdp_device_collection_find_type_and_name(rdpSettings* settings
 
 UINT32 freerdp_device_collection_count_type(rdpSettings* settings, UINT32 type)
 {
-        UINT32 count = 0;
+	UINT32 count = 0;
 	UINT32 index;
+
 	for (index = 0; index < settings->DeviceCount; index++)
 	{
 		RDPDR_DEVICE* device = (RDPDR_DEVICE*) settings->DeviceArray[index];
 
 		if (device->Type == type)
-                {
+		{
 			count ++ ;
-                }
+		}
 	}
 
 	return count;
@@ -523,8 +532,8 @@ static const char* device_type_label(UINT32 type)
 void freerdp_device_print(RDPDR_DEVICE* device, UINT32 index, const char* fname, UINT32 lino)
 {
 	WLog_DBG(TAG, "%s:%u: device[%d] = { id = %d,  type = %s, name = %s }",
-                fname, lino, index, device->Id, device_type_label(device->Type),
-                (device->Name ? device->Name : "(null)"));
+	         fname, lino, index, device->Id, device_type_label(device->Type),
+	         (device->Name ? device->Name : "(null)"));
 }
 
 void freerdp_device_print_all(rdpSettings* settings, const char* fname, UINT32 lino)

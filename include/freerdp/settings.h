@@ -449,7 +449,7 @@ struct _RDPDR_SMARTCARD
 	UINT32 Id;
 	UINT32 Type;
 	char* Name;
-        wLinkedList* deviceFilter;
+	wLinkedList* deviceFilter;
 };
 typedef struct _RDPDR_SMARTCARD RDPDR_SMARTCARD;
 
@@ -1519,7 +1519,8 @@ FREERDP_API BOOL freerdp_device_collection_add(rdpSettings* settings, RDPDR_DEVI
 FREERDP_API RDPDR_DEVICE* freerdp_device_collection_find(rdpSettings* settings, const char* name);
 FREERDP_API RDPDR_DEVICE* freerdp_device_collection_find_type(rdpSettings* settings, UINT32 type);
 FREERDP_API UINT32 freerdp_device_collection_count_type(rdpSettings* settings, UINT32 type);
-FREERDP_API RDPDR_DEVICE* freerdp_device_collection_find_type_and_name(rdpSettings* settings, UINT32 type, const char* name);
+FREERDP_API RDPDR_DEVICE* freerdp_device_collection_find_type_and_name(rdpSettings* settings,
+        UINT32 type, const char* name);
 FREERDP_API RDPDR_DEVICE* freerdp_device_clone(RDPDR_DEVICE* device);
 FREERDP_API void freerdp_device_collection_free(rdpSettings* settings);
 FREERDP_API void freerdp_device_print(RDPDR_DEVICE* device, UINT32 index, const char* fname,
