@@ -375,6 +375,120 @@ BOOL test_ncompare()
 	return success;
 }
 
+
+
+static struct
+{
+	int widechar;
+	int srclen;
+	int dstlen;
+	union
+	{
+		struct
+		{
+			BYTE source[32];
+			BYTE destination[32];
+			BYTE expected[32];
+		} bytes;
+		struct
+		{
+			WCHAR source[32];
+			WCHAR destination[32];
+			WCHAR expected[32];
+		} wchars;
+	} strings;
+} ncopies[] =
+{
+	{ 0, 0, 4,  { .bytes = {"", "foo", "foo"}}},
+	{ 0, 1, 4,  { .bytes = {"", "foo", "\0oo"}}},
+	{ 0, 1, 7,  { .bytes = {"\0foo", "barbaz", "\0arbaz"}}},
+	{ 0, 4, 7,  { .bytes = {"\0foo", "barbaz", "\0fooaz"}}},
+	{ 0, 8, 12, { .bytes = {"foo\0bar", "foo-bar-baz", "foo\0bar\0baz"}}},
+	{ 0, 4, 4,  { .bytes = {"foo", "bar", "foo"}}},
+	{ 1, 0, 4,  { .wchars = {{0}, {'f', 'o', 'o', 0}, {'f', 'o', 'o', 0}}}},
+	{ 1, 1, 4,  { .wchars = {{0}, {'f', 'o', 'o', 0}, {0, 'o', 'o', 0}}}},
+	{ 1, 1, 7,  { .wchars = {{0, 'f', 'o', 'o', 0}, {'b', 'a', 'r', 'b', 'a', 'z', 0}, {0, 'a', 'r', 'b', 'a', 'z', 0}}}},
+	{ 1, 4, 7,  { .wchars = {{0, 'f', 'o', 'o', 0}, {'b', 'a', 'r', 'b', 'a', 'z', 0}, {0, 'f', 'o', 'o', 'a', 'z', 0}}}},
+	{
+		1, 8, 12, {
+			.wchars = {{'f', 'o', 'o', 0, 'b', 'a', 'r', 0},
+				{'f', 'o', 'o', '-', 'b', 'a', 'r', '-', 'b', 'a', 'z', 0},
+				{'f', 'o', 'o', 0, 'b', 'a', 'r', 0, 'b', 'a', 'z', 0}
+			}
+		}
+	},
+	{
+		1, 4, 4,  {
+			.wchars = {{'f', 'o', 'o', 0},
+				{'b', 'a', 'r', 0},
+				{'f', 'o', 'o', 0}
+			}
+		}
+	},
+};
+
+void memdump(BYTE* mem, int size)
+{
+	int i;
+
+	for (i = 0; i < size; i ++)
+	{
+		printf("%02x ", mem[i]);
+	}
+}
+
+
+BOOL test_ncopy()
+{
+	BOOL success = TRUE;
+	int i;
+
+	for (i = 0; i < countof(ncopies); i ++)
+	{
+		int widechar = ncopies[i].widechar;
+		int width = (widechar ? 2 : 1);
+		int srclen = ncopies[i].srclen;
+		int dstlen = ncopies[i].dstlen;
+		struct string_funs* fun = & string_funs[widechar];
+		BYTE* source = (widechar
+		                ? (BYTE*)ncopies[i].strings.wchars.source
+		                : ncopies[i].strings.bytes.source);
+		BYTE* destination = (widechar
+		                     ? (BYTE*)ncopies[i].strings.wchars.destination
+		                     : ncopies[i].strings.bytes.destination);
+		BYTE* mestination = (BYTE*)calloc(dstlen, (widechar
+		                                  ? sizeof(WCHAR)
+		                                  : sizeof(BYTE)));
+		BYTE* expected = (widechar
+		                  ? (BYTE*)ncopies[i].strings.wchars.expected
+		                  : ncopies[i].strings.bytes.expected);
+		memcpy(mestination, destination, width * dstlen);
+		ncopy(fun, mestination, source, srclen);
+
+		if (0 != memcmp(mestination, expected, width * dstlen))
+		{
+			printf("%s:%d: Test %s:[%d]  ncopy(%s, source = {",
+			       __FILE__, __LINE__, __FUNCTION__, i,
+			       widechar ? "WCHAR" : "BYTE");
+			memdump(source, width * srclen);
+			printf("}, destination = {");
+			memdump(destination, width * dstlen);
+			printf("}, len = %d) failed!\n", srclen);
+			printf(" it resulted in {");
+			memdump(mestination, width * dstlen);
+			printf("}\n       expected {");
+			memdump(expected, width * dstlen);
+			printf("}\n");
+			success = FALSE;
+		}
+	}
+
+	return success;
+}
+
+
+
+
 /* ncopy(str, destination, source, count) */
 /*  */
 /* str is the string_funs for the given string. */
@@ -452,5 +566,6 @@ int TestStr(int argc, char* argv[])
 	success &= test_winc();
 	success &= test_compare();
 	success &= test_ncompare();
+	success &= test_ncopy();
 	return success ? 0 : -1;
 }
