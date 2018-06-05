@@ -40,21 +40,27 @@ string_funs[1] contains the functions for wide char strings.
 */
 
 
+int asize();
 int aref(BYTE* string, int index);
 void aset(BYTE* string, int index, int character);
 int alen(BYTE* string);
 BYTE* ainc(BYTE* string, int increment);
+char * aconvert(BYTE *string);
+int wsize();
 int wref(BYTE* string, int index);
 void wset(BYTE* string, int index, int character);
 int wlen(BYTE* string);
 BYTE* winc(BYTE* string, int increment);
+char * wconvert(BYTE *string);
 
 struct string_funs
 {
+	int (*size)(); /* return the character size (sizeof(BYTE) or sizeof(WCHAR)) */
 	int (*ref)(BYTE*, int);
 	void (*set)(BYTE*, int, int);
 	int (*len)(BYTE*);
 	BYTE* (*inc)(BYTE*, int);
+        char * (*convert)(BYTE*);
 };
 
 struct string_funs string_funs[2];
@@ -68,11 +74,12 @@ string is either a char or wide char string.
 other_string is a char string.
 
 Both strings are 0-terminated.
+Strings are compared case sensitively.
 
 compare returns -1,  0 or 1 depending on whether string is less,
 equal or greater than other_string in lexical order.
  */
-int compare(struct string_funs* str, BYTE* string, BYTE* other_string);
+int compare(struct string_funs* funs, BYTE* string, BYTE* other_string);
 
 /**
 ncompare(str, string, other_string, max)
@@ -83,12 +90,13 @@ other_string is a char string.
 ringt
 Both  strings are  0-terminated, however  the comparison  ends at  the
 index max if the strings are longer.
+Strings are compared case sensitively.
 
 ncompare  returns -1,  0 or  1 depending  on whether  string (or  it's
 max-long prefix) is  less, equal or greater than  other_string (or its
 max-long prefix) in lexical order.
 */
-int ncompare(struct string_funs* str, BYTE* string, BYTE* other_string, int max);
+int ncompare(struct string_funs* funs, BYTE* string, BYTE* other_string, int max);
 
 /**
 ncopy(str, destination, source, count)
@@ -100,7 +108,7 @@ source is either a char or wide char string.
 ncopy copies exactly count characters  (char or wide char) from source
 to destination, including null characters if any, and beyond.  No null is added.
 */
-void ncopy(struct string_funs* str, BYTE* destination, BYTE* source, int count);
+void ncopy(struct string_funs* funs, BYTE* destination, BYTE* source, int count);
 
 
 /**
@@ -111,10 +119,11 @@ string is either a char or wide char string.
 substring is a char string.
 
 Both strings are 0-terminated.
+Strings are compared case sensitively.
 
 contains returns whether substring is a substring of string.
  */
-BOOL contains(struct string_funs* str, BYTE* string, BYTE* substring);
+BOOL contains(struct string_funs* funs, BYTE* string, BYTE* substring);
 
 
 
@@ -126,11 +135,12 @@ string is either a char or wide char string.
 list is a wLinkedList of char strings.
 
 All strings are 0-terminated.
+Strings are compared case sensitively.
 
 LinkedList_StringHasSubstring returns whether at least one of the
 strings in the list is a substring of string.
  */
-BOOL LinkedList_StringHasSubstring(struct string_funs* str, BYTE* string, wLinkedList* list);
+BOOL LinkedList_StringHasSubstring(struct string_funs* funs, BYTE* string, wLinkedList* list);
 
 
 /**
@@ -142,11 +152,33 @@ cchString points to the total number of bytes used by mszStrings.
 substrings is a wLinkedList of char strings.
 
 All strings are 0-terminated.
+Strings are compared case sensitively.
 
-mszFilterStrings modifies mszStrings,  removing any string that contains one of the substrings.
+mszFilterStrings modifies mszStrings,  removing any string that does not contain at least one of the substrings.
 The total size pointed to by cchStrings is updated.
  */
-void mszFilterStrings(BOOL widechar, LPSTR mszStrings, DWORD* cchStrings, wLinkedList* substrings);
+void mszFilterStrings(BOOL widechar, void *  mszStrings, DWORD* cchStrings, wLinkedList* substrings);
 
+ /**
+mszStringsPrint(output,widechar,mszStrings)
+
+output is an output FILE.
+widechar indicates whether mszStrings contains char strings or wide char strings.
+mszStrings is a double null-terminated list of strings,  either char or wide char,  according to widechar.
+
+mszStringsPrint prints each string in the mszStrings list on its own line.
+ */
+void mszStringsPrint(FILE * output, BOOL widechar, void * mszStrings);
+
+
+ /**
+mszSize(widechar, mszStrings)
+
+widechar indicates whether mszStrings contains char strings or wide char strings.
+mszStrings is a double null-terminated list of strings,  either char or wide char,  according to widechar.
+
+mszSize returns the total number of bytes used by mszStrings (if widechar then it's twice the number of characters).
+ */
+int mszSize(BOOL widechar, void * mszString);
 
 #endif

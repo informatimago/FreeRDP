@@ -84,7 +84,7 @@ BOOL Pointer_Equal(void* a, void* b)
 
 BOOL String_Equal(void* a, void* b)
 {
-	return 0 == strcmp(a, b);
+	return 0 == strcmp(a, , b);
 }
 
 
