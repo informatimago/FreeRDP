@@ -287,7 +287,7 @@ static BOOL rdpsnd_alsa_open(rdpsndDevicePlugin* device, const AUDIO_FORMAT* for
 		return FALSE;
 	}
 
-  	return rdpsnd_alsa_set_format(device, format, latency) &&
+	return rdpsnd_alsa_set_format(device, format, latency) &&
 	       rdpsnd_alsa_open_mixer(alsa);
 }
 
@@ -448,7 +448,7 @@ static UINT rdpsnd_alsa_play(rdpsndDevicePlugin* device, const BYTE* data, size_
 	}
 
 	{
- 		snd_pcm_sframes_t available, delay;
+		snd_pcm_sframes_t available, delay;
 		int rc = snd_pcm_avail_delay(alsa->pcm_handle, &available, &delay);
 
 		if (rc != 0)
