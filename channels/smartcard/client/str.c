@@ -21,9 +21,19 @@
 #include "config.h"
 #endif
 
+#include <winpr/string.h>
+
 #include "str.h"
 
-struct string_funs string_funs[2] = {{aref, aset, alen, ainc}, {wref, wset, wlen, winc}};
+struct string_funs string_funs[2] = {
+        {asize, aref, aset, alen, ainc, aconvert},
+	{wsize, wref, wset, wlen, winc, wconvert}
+};
+
+int asize()
+{
+	return sizeof(BYTE);
+}
 
 int aref(BYTE* string, int index)
 {
@@ -37,19 +47,22 @@ void aset(BYTE* string, int index, int character)
 
 int alen(BYTE* string)
 {
-	int length = 0;
-
-	while (0 != aref(string, length))
-	{
-		length ++ ;
-	}
-
-	return length;
+	return lstrlenA((LPCSTR)string);
 }
 
 BYTE* ainc(BYTE* string, int increment)
 {
 	return string + increment;
+}
+
+char *  aconvert(BYTE *string)
+{
+        return strdup((char * )string);
+}
+
+int wsize()
+{
+	return sizeof(WCHAR);
 }
 
 int wref(BYTE* string, int index)
@@ -64,14 +77,7 @@ void wset(BYTE* string, int index, int character)
 
 int wlen(BYTE* string)
 {
-	int length = 0;
-
-	while (0 != wref(string, length))
-	{
-		length ++ ;
-	}
-
-	return length;
+	return lstrlenW((LPCWSTR)string);
 }
 
 BYTE* winc(BYTE* string, int increment)
@@ -79,14 +85,21 @@ BYTE* winc(BYTE* string, int increment)
 	return string + 2 * increment;
 }
 
+char *  wconvert(BYTE *string)
+{
+        char *  utf8 = 0;
+        ConvertFromUnicode(CP_UTF8, 0, (WCHAR*)string, -1,(CHAR * *) &utf8, 0, NULL, NULL);
+        return utf8;
+}
 
-int compare(struct string_funs* str, BYTE* string, BYTE* other_string)
+
+int compare(struct string_funs* funs, BYTE* string, BYTE* other_string)
 {
 	int i = 0;
 
 	while (1)
 	{
-		if (str->ref(string, i) == 0)
+		if (funs->ref(string, i) == 0)
 		{
 			return (other_string[i] == 0) ? 0 : -1;
 		}
@@ -96,22 +109,22 @@ int compare(struct string_funs* str, BYTE* string, BYTE* other_string)
 			return 1;
 		}
 
-		if (str->ref(string, i) != other_string[i])
+		if (funs->ref(string, i) != other_string[i])
 		{
-			return (str->ref(string, i) <  other_string[i]) ? -1 : 1;
+			return (funs->ref(string, i) <  other_string[i]) ? -1 : 1;
 		}
 
 		i ++ ;
 	}
 }
 
-int ncompare(struct string_funs* str, BYTE* string, BYTE* other_string, int max)
+int ncompare(struct string_funs* funs, BYTE* string, BYTE* other_string, int max)
 {
 	int i = 0;
 
 	for (i = 0; i < max; i ++)
 	{
-		if (str->ref(string, i) == 0)
+		if (funs->ref(string, i) == 0)
 		{
 			return (other_string[i] == 0) ? 0 : -1;
 		}
@@ -121,25 +134,25 @@ int ncompare(struct string_funs* str, BYTE* string, BYTE* other_string, int max)
 			return 1;
 		}
 
-		if (str->ref(string, i) != other_string[i])
+		if (funs->ref(string, i) != other_string[i])
 		{
-			return (str->ref(string, i) <  other_string[i]) ? -1 : 1;
+			return (funs->ref(string, i) <  other_string[i]) ? -1 : 1;
 		}
 	}
 
 	return 0;
 }
 
-BOOL contains(struct string_funs* str, BYTE* string, BYTE* substring)
+BOOL contains(struct string_funs* funs, BYTE* string, BYTE* substring)
 {
-	int wlen = str->len(string);
+	int wlen = funs->len(string);
 	int slen = strlen((char*)substring);
 	int end = wlen - slen;
 	int i = 0;
 
 	for (i = 0; i <= end; i ++)
 	{
-		if (ncompare(str, str->inc(string, i), substring, slen) == 0)
+		if (ncompare(funs, funs->inc(string, i), substring, slen) == 0)
 		{
 			return TRUE;
 		}
@@ -149,50 +162,102 @@ BOOL contains(struct string_funs* str, BYTE* string, BYTE* substring)
 }
 
 
-void ncopy(struct string_funs* str, BYTE* destination, BYTE* source, int count)
+void ncopy(struct string_funs* funs, BYTE* destination, BYTE* source, int count)
 {
 	int i;
 
 	for (i = 0; i < count; i ++)
 	{
-		str->set(destination, i, str->ref(source, i));
+		funs->set(destination, i, funs->ref(source, i));
 	}
 }
 
-BOOL LinkedList_StringHasSubstring(struct string_funs* str, BYTE* string, wLinkedList* list)
+BOOL LinkedList_StringHasSubstring(struct string_funs* funs, BYTE* string, wLinkedList* list)
 {
-        LinkedList_Enumerator_Reset(list);
-        while (LinkedList_Enumerator_MoveNext(list))
-        {
-                if (contains(str, string, LinkedList_Enumerator_Current(list)))
-                {
-                        return TRUE;
-                }
-        }
+	LinkedList_Enumerator_Reset(list);
+
+	while (LinkedList_Enumerator_MoveNext(list))
+	{
+		if (contains(funs, string, LinkedList_Enumerator_Current(list)))
+		{
+			return TRUE;
+		}
+	}
+
 	return FALSE;
 }
 
-void mszFilterStrings(BOOL widechar, LPSTR mszReaders, DWORD* cchReaders, wLinkedList* substrings)
+void mszFilterStrings(BOOL widechar, void *  mszStrings, DWORD* cchReaders, wLinkedList* substrings)
 {
-	struct string_funs* str = & string_funs[widechar ? 1 : 0];
-	BYTE* current = (BYTE*)mszReaders;
+	struct string_funs* funs = & string_funs[widechar ? 1 : 0];
+	BYTE* current = (BYTE*)mszStrings;
 	BYTE* destination = current;
-	// int length = * cchReaders / (widechar?2:1);
 
-	while (str->ref(current, 0))
+	while (funs->ref(current, 0))
 	{
-		int size = str->len(current) + 1;
+		int size = funs->len(current) + 1;
 
-		if (!LinkedList_StringHasSubstring(str, current, substrings))
+		if (LinkedList_StringHasSubstring(funs, current, substrings, TRUE))
 		{
 			/* Keep it */
-			ncopy(str, destination, current, size);
-			destination = str->inc(destination, size);
+			ncopy(funs, destination, current, size);
+			destination = funs->inc(destination, size);
 		}
 
-		current = str->inc(current, size);
+		current = funs->inc(current, size);
 	}
 
-	ncopy(str, destination, current, 1);
-	* cchReaders = (BYTE*)destination - (BYTE*)mszReaders + 1;
+	ncopy(funs, destination, current, 1);
+	* cchReaders = 1 + ((BYTE*)destination - (BYTE*)mszStrings) / funs->size();
+}
+
+void mszStringsPrint(FILE * output, BOOL widechar, void * mszStrings)
+{
+	struct string_funs* funs = & string_funs[widechar ? 1 : 0];
+	BYTE* current = (BYTE*)mszStrings;
+
+	while (funs->ref(current, 0))
+	{
+		int size = funs->len(current) + 1;
+                char * printable = funs->convert(current);
+                fprintf(output, "%s\n", printable);
+                free(printable);
+		current = funs->inc(current, size);
+	}
+}
+
+int mszSize(BOOL widechar, void * mszStrings)
+{
+	int size = 0;
+
+	if (widechar)
+	{
+		LPCWSTR current = mszStrings;
+		int length = lstrlenW(current);
+
+		while (0 < length)
+		{
+			size += sizeof(WCHAR) * (1 + length);
+			current += length;
+			length = lstrlenW(current);
+		}
+
+		size += sizeof(WCHAR);
+	}
+	else
+	{
+		LPCSTR current = mszStrings;
+		int length = lstrlenA(current);
+
+		while (0 < length)
+		{
+			size += sizeof(BYTE) * (1 + length);
+			current += length;
+			length = lstrlenA(current);
+		}
+
+		size += sizeof(BYTE);
+	}
+
+	return size;
 }
