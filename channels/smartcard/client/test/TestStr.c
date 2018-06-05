@@ -812,7 +812,7 @@ int convert_to_unicode(void* source, void** destination)
 
 int convert_from_unicode(void* source, void** destination)
 {
-	return ConvertFromUnicode(CP_UTF8, 0, (LPCWSTR)source, -1, (LPSTR *)destination, 0, "?", 0);
+	return ConvertFromUnicode(CP_UTF8, 0, (LPCWSTR)source, -1, (LPSTR*)destination, 0, "?", 0);
 }
 
 typedef int (* convert_pr)(void* source, void** destination);
@@ -821,14 +821,14 @@ typedef int (*length_pr)(void*);
 BOOL string_list_to_msz(struct string_funs* funs, BYTE** list, BOOL widechar, LPSTR*   mszString,
                         DWORD* cchStrings)
 {
-	int count = string_list_length((const char* const* )list);
+	int count = string_list_length((const char * const*)list);
 	int total_size;
 	int input_width = funs->size();
 	int output_width = widechar ? sizeof(WCHAR) : sizeof(BYTE);
 	convert_pr convert = widechar ? convert_to_unicode : convert_from_unicode;;
 	BOOL templist_allocated = FALSE;
 	void** templist = 0;
-        length_pr templen = widechar?(length_pr)lstrlenW:(length_pr)lstrlenA;
+	length_pr templen = widechar ? (length_pr)lstrlenW : (length_pr)lstrlenA;
 	LPSTR mszDest;
 	LPSTR current;
 	int i;
@@ -836,8 +836,8 @@ BOOL string_list_to_msz(struct string_funs* funs, BYTE** list, BOOL widechar, LP
 	if (output_width == input_width)
 	{
 		total_size = string_list_size(funs, list);
-		templist =  (void * *)list;
-		templen =(length_pr)funs->len;
+		templist = (void**)list;
+		templen = (length_pr)funs->len;
 	}
 	else
 	{
@@ -886,8 +886,8 @@ BOOL string_list_to_msz(struct string_funs* funs, BYTE** list, BOOL widechar, LP
 	}
 
 	(*mszString) = mszDest;
-	(*cchStrings) =1 + (current - mszDest) / funs->size();
- 	return TRUE;
+	(*cchStrings) = 1 + (current - mszDest) / funs->size();
+	return TRUE;
 }
 
 
@@ -1023,7 +1023,7 @@ static struct
 
 inline int min(int a, int b)
 {
-        return a < b?a:b;
+	return a < b ? a : b;
 }
 
 BOOL test_mszfilterstrings()
@@ -1035,13 +1035,13 @@ BOOL test_mszfilterstrings()
 	{
 		int widechar = mszfilterstrings[i].widechar;
 		struct string_funs* funs = & string_funs[widechar];
-		char** filter_list =(char**)mszfilterstrings[i].filter_list;
+		char** filter_list = (char**)mszfilterstrings[i].filter_list;
 		DWORD cchInput = 0;
 		BYTE* input;
 		DWORD cchOutput = 0;
 		BYTE* output;
 		wLinkedList* list = LinkedList_FromStringList((char**)filter_list);
-                int size;
+		int size;
 
 		if (!list)
 		{
@@ -1050,59 +1050,66 @@ BOOL test_mszfilterstrings()
 
 		if (widechar)
 		{
-                        BYTE * * list;
+			BYTE** list;
+			list = string_array_to_string_list(funs, (BYTE*)&mszfilterstrings[i].input.wchars,
+			                                   mszfilterstrings_string_count, mszfilterstrings_string_size);
 
-                        list = string_array_to_string_list(funs, (BYTE *)&mszfilterstrings[i].input.wchars, mszfilterstrings_string_count, mszfilterstrings_string_size);
-                        if (!list)
-                        {
-                                return FALSE;
-                        }
+			if (!list)
+			{
+				return FALSE;
+			}
+
 			string_list_to_msz(funs, list, widechar, (LPSTR*)& input, & cchInput);
-                        free(list);
+			free(list);
+			list = string_array_to_string_list(funs, (BYTE*)&mszfilterstrings[i].output.wchars,
+			                                   mszfilterstrings_string_count, mszfilterstrings_string_size);
 
-                        list = string_array_to_string_list(funs, (BYTE *)&mszfilterstrings[i].output.wchars, mszfilterstrings_string_count, mszfilterstrings_string_size);
-                        if (!list)
-                        {
-                                return FALSE;
-                        }
+			if (!list)
+			{
+				return FALSE;
+			}
+
 			string_list_to_msz(funs, list, widechar, (LPSTR*)& output, & cchOutput);
-                        free(list);
+			free(list);
 		}
 		else
 		{
-                        BYTE * * list;
+			BYTE** list;
+			list = string_array_to_string_list(funs, (BYTE*)&mszfilterstrings[i].input.bytes,
+			                                   mszfilterstrings_string_count, mszfilterstrings_string_size);
 
-                        list = string_array_to_string_list(funs, (BYTE *)&mszfilterstrings[i].input.bytes, mszfilterstrings_string_count, mszfilterstrings_string_size);
-                        if (!list)
-                        {
-                                return FALSE;
-                        }
+			if (!list)
+			{
+				return FALSE;
+			}
+
 			string_list_to_msz(funs, list, widechar, (LPSTR*)& input, & cchInput);
-                        free(list);
+			free(list);
+			list = string_array_to_string_list(funs, (BYTE*)&mszfilterstrings[i].output.bytes,
+			                                   mszfilterstrings_string_count, mszfilterstrings_string_size);
 
-                        list = string_array_to_string_list(funs, (BYTE *)&mszfilterstrings[i].output.bytes, mszfilterstrings_string_count, mszfilterstrings_string_size);
-                        if (!list)
-                        {
-                                return FALSE;
-                        }
+			if (!list)
+			{
+				return FALSE;
+			}
+
 			string_list_to_msz(funs, list, widechar, (LPSTR*)& output, & cchOutput);
-                        free(list);
+			free(list);
 		}
 
-
 		mszFilterStrings(widechar, (LPSTR)input, & cchInput, list);
+		size = mszSize(widechar, input);
 
-                size = mszSize(widechar, input);
 		if (cchInput != size / funs->size())
 		{
 			FAILURE("[%d] after mszFilterStrings,  cchInput = %d should be  equal to mszSize(widechar, input) / fun->size() = %d\n",
-                                i, cchInput, size / funs->size());
-                }
+			        i, cchInput, size / funs->size());
+		}
 
 		if (cchInput != cchOutput)
 		{
 			FAILURE("[%d] after mszFilterStrings,  cchInput = %d should be  equal to cchOutput = %d\n",
-                                i, cchInput, cchOutput);
+			        i, cchInput, cchOutput);
 			printf("result:   ");
 			memdump(input, cchInput);
 			printf("\nexpected: ");

@@ -25,8 +25,9 @@
 
 #include "str.h"
 
-struct string_funs string_funs[2] = {
-        {asize, aref, aset, alen, ainc, aconvert},
+struct string_funs string_funs[2] =
+{
+	{asize, aref, aset, alen, ainc, aconvert},
 	{wsize, wref, wset, wlen, winc, wconvert}
 };
 
@@ -55,9 +56,9 @@ BYTE* ainc(BYTE* string, int increment)
 	return string + increment;
 }
 
-char *  aconvert(BYTE *string)
+char*   aconvert(BYTE* string)
 {
-        return strdup((char * )string);
+	return strdup((char*)string);
 }
 
 int wsize()
@@ -85,11 +86,11 @@ BYTE* winc(BYTE* string, int increment)
 	return string + 2 * increment;
 }
 
-char *  wconvert(BYTE *string)
+char*   wconvert(BYTE* string)
 {
-        char *  utf8 = 0;
-        ConvertFromUnicode(CP_UTF8, 0, (WCHAR*)string, -1,(CHAR * *) &utf8, 0, NULL, NULL);
-        return utf8;
+	char*   utf8 = 0;
+	ConvertFromUnicode(CP_UTF8, 0, (WCHAR*)string, -1, (CHAR**) &utf8, 0, NULL, NULL);
+	return utf8;
 }
 
 
@@ -187,7 +188,7 @@ BOOL LinkedList_StringHasSubstring(struct string_funs* funs, BYTE* string, wLink
 	return FALSE;
 }
 
-void mszFilterStrings(BOOL widechar, void *  mszStrings, DWORD* cchReaders, wLinkedList* substrings)
+void mszFilterStrings(BOOL widechar, void*   mszStrings, DWORD* cchReaders, wLinkedList* substrings)
 {
 	struct string_funs* funs = & string_funs[widechar ? 1 : 0];
 	BYTE* current = (BYTE*)mszStrings;
@@ -211,7 +212,7 @@ void mszFilterStrings(BOOL widechar, void *  mszStrings, DWORD* cchReaders, wLin
 	* cchReaders = 1 + ((BYTE*)destination - (BYTE*)mszStrings) / funs->size();
 }
 
-void mszStringsPrint(FILE * output, BOOL widechar, void * mszStrings)
+void mszStringsPrint(FILE* output, BOOL widechar, void* mszStrings)
 {
 	struct string_funs* funs = & string_funs[widechar ? 1 : 0];
 	BYTE* current = (BYTE*)mszStrings;
@@ -219,14 +220,14 @@ void mszStringsPrint(FILE * output, BOOL widechar, void * mszStrings)
 	while (funs->ref(current, 0))
 	{
 		int size = funs->len(current) + 1;
-                char * printable = funs->convert(current);
-                fprintf(output, "%s\n", printable);
-                free(printable);
+		char* printable = funs->convert(current);
+		fprintf(output, "%s\n", printable);
+		free(printable);
 		current = funs->inc(current, size);
 	}
 }
 
-int mszSize(BOOL widechar, void * mszStrings)
+int mszSize(BOOL widechar, void* mszStrings)
 {
 	int size = 0;
 

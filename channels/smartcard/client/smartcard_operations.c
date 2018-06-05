@@ -37,6 +37,7 @@
 #include <freerdp/freerdp.h>
 #include <freerdp/channels/rdpdr.h>
 
+#include "str.h"
 #include "smartcard_main.h"
 
 const char* smartcard_get_ioctl_string(UINT32 ioControlCode, BOOL funcName)
@@ -368,6 +369,8 @@ static LONG smartcard_ListReaderGroupsA_Call(SMARTCARD_DEVICE* smartcard,
 	cchGroups = SCARD_AUTOALLOCATE;
 	status = ret.ReturnCode = SCardListReaderGroupsA(operation->hContext, (LPSTR) &mszGroups,
 	                          &cchGroups);
+	printf("List of readers Groups A: \n");
+	mszStringsPrint(stdout, FALSE, mszGroups);
 	ret.msz = (BYTE*) mszGroups;
 	ret.cBytes = cchGroups;
 
@@ -414,6 +417,8 @@ static LONG smartcard_ListReaderGroupsW_Call(SMARTCARD_DEVICE* smartcard,
 	cchGroups = SCARD_AUTOALLOCATE;
 	status = ret.ReturnCode = SCardListReaderGroupsW(operation->hContext, (LPWSTR) &mszGroups,
 	                          &cchGroups);
+	printf("List of readers Groups W: \n");
+	mszStringsPrint(stdout, TRUE, mszGroups);
 	ret.msz = (BYTE*) mszGroups;
 	ret.cBytes = cchGroups;
 
@@ -451,6 +456,16 @@ static LONG smartcard_ListReadersA_Decode(SMARTCARD_DEVICE* smartcard,
 	return status;
 }
 
+void memdump(BYTE* mem, int size)
+{
+	int i;
+
+	for (i = 0; i < size; i ++)
+	{
+		printf("%02x ", mem[i]);
+	}
+}
+
 static LONG smartcard_ListReadersA_Call(SMARTCARD_DEVICE* smartcard, SMARTCARD_OPERATION* operation)
 {
 	LONG status;
@@ -462,6 +477,30 @@ static LONG smartcard_ListReadersA_Call(SMARTCARD_DEVICE* smartcard, SMARTCARD_O
 	cchReaders = SCARD_AUTOALLOCATE;
 	status = ret.ReturnCode = SCardListReadersA(operation->hContext, (LPCSTR) call->mszGroups,
 	                          (LPSTR) &mszReaders, &cchReaders);
+	printf("mszReaders: ");
+	memdump((void*)mszReaders, cchReaders);
+	printf("\n");
+
+	if (cchReaders != mszSize(FALSE, mszReaders))
+	{
+		printf("cchReaders = %d mszSize(mszReader) = %d\n", cchReaders, mszSize(FALSE, mszReaders));
+	}
+
+	printf("List of readers before filtering: \n");
+	mszStringsPrint(stdout, FALSE, mszReaders);
+	/* Remove the card readers that are not specified on the command line */
+	mszFilterStrings(FALSE, mszReaders, & cchReaders, smartcard->filter);
+	printf("List of readers after  filtering: \n");
+	mszStringsPrint(stdout, FALSE, mszReaders);
+	printf("mszReaders: ");
+	memdump((void*)mszReaders, cchReaders);
+	printf("\n");
+
+	if (cchReaders != mszSize(FALSE, mszReaders))
+	{
+		printf("cchReaders = %d mszSize(mszReader) = %d\n", cchReaders, mszSize(FALSE, mszReaders));
+	}
+
 	ret.msz = (BYTE*) mszReaders;
 	ret.cBytes = cchReaders;
 
@@ -524,6 +563,30 @@ static LONG smartcard_ListReadersW_Call(SMARTCARD_DEVICE* smartcard, SMARTCARD_O
 	cchReaders = SCARD_AUTOALLOCATE;
 	status = ret.ReturnCode = SCardListReadersW(operation->hContext,
 	                          (LPCWSTR) call->mszGroups, (LPWSTR) &mszReaders, &cchReaders);
+	printf("mszReaders: ");
+	memdump((void*)mszReaders, cchReaders * 2);
+	printf("\n");
+
+	if (cchReaders != mszSize(TRUE, mszReaders))
+	{
+		printf("cchReaders = %d mszSize(mszReader) = %d\n", cchReaders, mszSize(TRUE, mszReaders));
+	}
+
+	printf("List of readers before filtering: \n");
+	mszStringsPrint(stdout, TRUE, mszReaders);
+	/* Remove the card readers that are not specified on the command line */
+	mszFilterStrings(TRUE, mszReaders, & cchReaders, smartcard->filter);
+	printf("List of readers after  filtering: \n");
+	mszStringsPrint(stdout, TRUE, mszReaders);
+	printf("mszReaders: ");
+	memdump((void*)mszReaders, cchReaders * 2);
+	printf("\n");
+
+	if (cchReaders != mszSize(TRUE, mszReaders))
+	{
+		printf("cchReaders = %d mszSize(mszReader) = %d\n", cchReaders, mszSize(TRUE, mszReaders));
+	}
+
 	ret.msz = (BYTE*) mszReaders;
 	ret.cBytes = cchReaders * 2;
 
@@ -757,6 +820,7 @@ static LONG smartcard_ConnectA_Call(SMARTCARD_DEVICE* smartcard, SMARTCARD_OPERA
 		call->Common.dwPreferredProtocols = SCARD_PROTOCOL_Tx;
 	}
 
+	/* DEBUG */ printf("SCardConnectA %s\n", (char*) call->szReader);
 	status = ret.ReturnCode = SCardConnectA(operation->hContext, (char*) call->szReader,
 	                                        call->Common.dwShareMode,
 	                                        call->Common.dwPreferredProtocols, &hCard, &ret.dwActiveProtocol);
@@ -813,6 +877,12 @@ static LONG smartcard_ConnectW_Call(SMARTCARD_DEVICE* smartcard, SMARTCARD_OPERA
 	    (call->Common.dwShareMode != SCARD_SHARE_DIRECT))
 	{
 		call->Common.dwPreferredProtocols = SCARD_PROTOCOL_Tx;
+	}
+
+	{
+		/* DEBUG */  char*   name = wconvert((void*)call->szReader);
+		/* DEBUG */  printf("SCardConnectA %s\n", name);
+		/* DEBUG */  free(name);
 	}
 
 	status = ret.ReturnCode = SCardConnectW(operation->hContext, (WCHAR*) call->szReader,

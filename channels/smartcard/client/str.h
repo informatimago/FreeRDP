@@ -45,13 +45,13 @@ int aref(BYTE* string, int index);
 void aset(BYTE* string, int index, int character);
 int alen(BYTE* string);
 BYTE* ainc(BYTE* string, int increment);
-char * aconvert(BYTE *string);
+char* aconvert(BYTE* string);
 int wsize();
 int wref(BYTE* string, int index);
 void wset(BYTE* string, int index, int character);
 int wlen(BYTE* string);
 BYTE* winc(BYTE* string, int increment);
-char * wconvert(BYTE *string);
+char* wconvert(BYTE* string);
 
 struct string_funs
 {
@@ -60,7 +60,7 @@ struct string_funs
 	void (*set)(BYTE*, int, int);
 	int (*len)(BYTE*);
 	BYTE* (*inc)(BYTE*, int);
-        char * (*convert)(BYTE*);
+	char* (*convert)(BYTE*);
 };
 
 struct string_funs string_funs[2];
@@ -157,9 +157,10 @@ Strings are compared case sensitively.
 mszFilterStrings modifies mszStrings,  removing any string that does not contain at least one of the substrings.
 The total size pointed to by cchStrings is updated.
  */
-void mszFilterStrings(BOOL widechar, void *  mszStrings, DWORD* cchStrings, wLinkedList* substrings);
+void mszFilterStrings(BOOL widechar, void*   mszStrings, DWORD* cchStrings,
+                      wLinkedList* substrings);
 
- /**
+/**
 mszStringsPrint(output,widechar,mszStrings)
 
 output is an output FILE.
@@ -167,18 +168,18 @@ widechar indicates whether mszStrings contains char strings or wide char strings
 mszStrings is a double null-terminated list of strings,  either char or wide char,  according to widechar.
 
 mszStringsPrint prints each string in the mszStrings list on its own line.
- */
-void mszStringsPrint(FILE * output, BOOL widechar, void * mszStrings);
+*/
+void mszStringsPrint(FILE* output, BOOL widechar, void* mszStrings);
 
 
- /**
+/**
 mszSize(widechar, mszStrings)
 
 widechar indicates whether mszStrings contains char strings or wide char strings.
 mszStrings is a double null-terminated list of strings,  either char or wide char,  according to widechar.
 
 mszSize returns the total number of bytes used by mszStrings (if widechar then it's twice the number of characters).
- */
-int mszSize(BOOL widechar, void * mszString);
+*/
+int mszSize(BOOL widechar, void* mszString);
 
 #endif
