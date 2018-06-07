@@ -198,7 +198,7 @@ void mszFilterStrings(BOOL widechar, void*   mszStrings, DWORD* cchReaders, wLin
 	{
 		int size = funs->len(current) + 1;
 
-		if (LinkedList_StringHasSubstring(funs, current, substrings, TRUE))
+		if (LinkedList_StringHasSubstring(funs, current, substrings))
 		{
 			/* Keep it */
 			ncopy(funs, destination, current, size);
