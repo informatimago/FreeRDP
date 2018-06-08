@@ -202,10 +202,10 @@ BOOL test_compare()
 					convert(string, cstr);                                          \
 					convert(target, ctgt);                                          \
 					printf("%s:%d: Test %s: compare(char, %s, %s) failed!\n",       \
-					       __FILE__, __LINE__, __FUNCTION__,                       \
-					       cstr, ctgt);                                            \
+                                                __FILE__, __LINE__, __FUNCTION__,                       \
+                                                cstr, ctgt);                                            \
 					printf(" it resulted in %d,  expected % d\n",                   \
-					       result, expected);                                      \
+                                                result, expected);                                      \
 					free(cstr);                                                     \
 					free(ctgt);                                                     \
 					success = FALSE;                                                \

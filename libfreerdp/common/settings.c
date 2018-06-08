@@ -505,7 +505,7 @@ static const char* device_type_label(UINT32 type)
 
 void freerdp_device_print(RDPDR_DEVICE* device, UINT32 index, const char * fname, UINT32 lino)
 {
-	WLog_DBG(TAG, "%s:%u: device[%d] = { id = %d,  type = %s, name = %s }",
+	WLog_INFO(TAG, "%s:%u: device[%d] = { id = %d,  type = %s, name = %s }",
 	         fname, lino, index, device->Id, device_type_label(device->Type),
 	         (device->Name ? device->Name : "(null)"));
 }
