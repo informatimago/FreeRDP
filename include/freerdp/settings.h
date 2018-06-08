@@ -23,6 +23,7 @@
 #define FREERDP_SETTINGS_H
 
 #include <winpr/timezone.h>
+#include <winpr/collections.h>
 
 #include <freerdp/api.h>
 #include <freerdp/types.h>
