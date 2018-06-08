@@ -30,6 +30,7 @@
 #include <winpr/crt.h>
 #include <winpr/wlog.h>
 #include <winpr/path.h>
+#include <winpr/collections.h>
 
 #include <freerdp/addin.h>
 #include <freerdp/settings.h>
@@ -484,8 +485,6 @@ BOOL freerdp_client_add_device_channel(rdpSettings* settings, int count,
 	}
 	else if (strcmp(params[0], "smartcard") == 0)
 	{
-		RDPDR_SMARTCARD* smartcard;
-
 		if (count < 1)
 			return FALSE;
 
@@ -757,7 +756,13 @@ static char** freerdp_command_line_parse_comma_separated_values_ex(const char* n
 
 			if (p)
 			{
-				p[0] = name;
+				p[0] = strdup(name);
+                                if (!p[0])
+                                {
+                                        free(p);
+                                        return NULL;
+                                }
+
 				*count = 1;
 				return p;
 			}
@@ -3067,8 +3072,6 @@ BOOL freerdp_client_load_addins(rdpChannels* channels, rdpSettings* settings)
 
 	if (settings->RedirectSmartCards)
 	{
-		RDPDR_SMARTCARD* smartcard;
-
 		if (!freerdp_device_collection_find_type(settings, RDPDR_DTYP_SMARTCARD))
 		{
 			if (!redirect_all_smartcard_devices(settings))

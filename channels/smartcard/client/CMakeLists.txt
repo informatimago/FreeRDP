@@ -18,6 +18,8 @@
 define_channel_client("smartcard")
 
 set(${MODULE_PREFIX}_SRCS
+    str.c
+    str.h
 	smartcard_main.c
 	smartcard_main.h
 	smartcard_pack.c
