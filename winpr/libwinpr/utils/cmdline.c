@@ -60,7 +60,7 @@ int CommandLineParseArgumentsA(int argc, LPSTR* argv, COMMAND_LINE_ARGUMENT_A* o
 	SSIZE_T keyword_length;
 	SSIZE_T keyword_index;
 	char* separator;
-        char* value;
+	char* value;
 	int toggle;
 	status = 0;
 	notescaped = FALSE;
@@ -359,7 +359,7 @@ int CommandLineParseArgumentsA(int argc, LPSTR* argv, COMMAND_LINE_ARGUMENT_A* o
 	return status;
 }
 
-int CommandLineParseArgumentsW(int argc, LPCWSTR* argv, COMMAND_LINE_ARGUMENT_W* options,
+int CommandLineParseArgumentsW(int argc, LPWSTR* argv, COMMAND_LINE_ARGUMENT_W* options,
                                DWORD flags,
                                void* context, COMMAND_LINE_PRE_FILTER_FN_W preFilter, COMMAND_LINE_POST_FILTER_FN_W postFilter)
 {

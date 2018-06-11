@@ -3,6 +3,7 @@
 #include <winpr/crt.h>
 #include <winpr/tchar.h>
 #include <winpr/cmdline.h>
+#include <winpr/strlst.h>
 
 static const char* testArgv[] =
 {
@@ -65,7 +66,8 @@ int TestCmdLine(int argc, char* argv[])
 	long height = 0;
 	COMMAND_LINE_ARGUMENT_A* arg;
 	flags = COMMAND_LINE_SIGIL_SLASH | COMMAND_LINE_SEPARATOR_COLON | COMMAND_LINE_SIGIL_PLUS_MINUS;
-	status = CommandLineParseArgumentsA(testArgc, testArgv, args, flags, NULL, NULL, NULL);
+	status = CommandLineParseArgumentsA(testArgc, string_list_copy(testArgv), args, flags, NULL, NULL,
+	                                    NULL);
 
 	if (status != 0)
 	{
