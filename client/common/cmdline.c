@@ -492,27 +492,9 @@ BOOL freerdp_client_add_device_channel(rdpSettings* settings, int count,
 	}
 	else if (strcmp(params[0], "smartcard") == 0)
 	{
-		/*DEBUG*/                int i;
-		/*DEBUG*/                printf("count = %d\n", count);
-
-		/*DEBUG*/                for (i = 0; i < count; i ++)
-			/*DEBUG*/
-		{
-			/*DEBUG*/                        printf("param[%d] = %s\n", i, params[i]);
-			/*DEBUG*/
-		}
-
-		/* DEBUG */  fflush(stdout);
-
 		if (count < 1)
 			return FALSE;
 
-		/*
-		TODO: since we parse the smartcard device name, this exclude the full
-		specification of a device whose name contains a comma!  In that case,
-		only the prefix till the command is taken into account.
-		Instead,  we should avoid parsing the device name.
-		*/
 		if (count == 1)
 		{
 			if (!redirect_all_smartcard_devices(settings))
@@ -922,12 +904,17 @@ static int freerdp_client_command_line_post_filter(void* context,
 	}
 	CommandLineSwitchCase(arg, "smartcard")
 	{
-		char** p;
-		size_t count;
-		p = freerdp_command_line_parse_comma_separated_values_offset(arg->Name, arg->Value,
-		        &count);
-		status = freerdp_client_add_device_channel(settings, count, p);
-		free(p);
+		/*  /smartcard takes a single optional substring as argument.  */
+		char* p[3] = {0};
+		size_t count = 0;
+		p[count++] = arg->Name;
+
+		if (arg->Value)
+		{
+			p[count++] = arg->Value;
+		}
+
+		status = freerdp_client_add_device_channel(settings, count, &p);
 	}
 	CommandLineSwitchCase(arg, "multitouch")
 	{
