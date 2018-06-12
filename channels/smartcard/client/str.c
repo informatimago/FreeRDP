@@ -23,7 +23,11 @@
 
 #include <winpr/string.h>
 
+#include <freerdp/log.h>
+
 #include "str.h"
+
+#define TAG FREERDP_TAG("str")
 
 struct string_funs string_funs[2] =
 {
@@ -53,7 +57,7 @@ int alen(BYTE* string)
 
 BYTE* ainc(BYTE* string, int increment)
 {
-	return string + increment;
+	return string + sizeof(BYTE) * increment;
 }
 
 char*   aconvert(BYTE* string)
@@ -83,7 +87,7 @@ int wlen(BYTE* string)
 
 BYTE* winc(BYTE* string, int increment)
 {
-	return string + 2 * increment;
+	return string + sizeof (WCHAR) * increment;
 }
 
 char*   wconvert(BYTE* string)
@@ -212,53 +216,76 @@ void mszFilterStrings(BOOL widechar, void*   mszStrings, DWORD* cchReaders, wLin
 	* cchReaders = 1 + ((BYTE*)destination - (BYTE*)mszStrings) / funs->size();
 }
 
+void mszStrings_Enumerator_Reset(mszStrings_Enumerator* enumerator, BOOL widechar, void* mszStrings)
+{
+        enumerator->widechar = widechar;
+        enumerator->mszStrings = mszStrings;
+        enumerator->state = 0;
+}
+
+BOOL mszStrings_Enumerator_MoveNext(mszStrings_Enumerator*  enumerator)
+{
+        struct string_funs *  funs = &string_funs[enumerator->widechar?1:0];
+        if (enumerator->state == 0)
+        {
+                enumerator->state = enumerator->mszStrings;
+        }
+        else
+        {
+                enumerator->state = funs->inc(enumerator->state, funs->len(enumerator->state) + 1);
+        }
+        return funs->ref(enumerator->state, 0);
+}
+
+void* mszStrings_Enumerator_Current(mszStrings_Enumerator*  enumerator)
+{
+        return enumerator->state;
+}
+
 void mszStringsPrint(FILE* output, BOOL widechar, void* mszStrings)
 {
 	struct string_funs* funs = & string_funs[widechar ? 1 : 0];
-	BYTE* current = (BYTE*)mszStrings;
-
-	while (funs->ref(current, 0))
+        mszStrings_Enumerator enumerator;
+        mszStrings_Enumerator_Reset(&enumerator, widechar, mszStrings);
+	while (mszStrings_Enumerator_MoveNext( & enumerator))
 	{
-		int size = funs->len(current) + 1;
+                void *  current = mszStrings_Enumerator_Current( & enumerator);
 		char* printable = funs->convert(current);
 		fprintf(output, "%s\n", printable);
 		free(printable);
-		current = funs->inc(current, size);
+	}
+}
+
+void mszStringsLog(const char * prefix, BOOL widechar, void* mszStrings)
+{
+	struct string_funs* funs = & string_funs[widechar ? 1 : 0];
+        mszStrings_Enumerator enumerator;
+
+        if (prefix == 0)
+        {
+                prefix = "";
+        }
+
+        mszStrings_Enumerator_Reset(&enumerator, widechar, mszStrings);
+	while (mszStrings_Enumerator_MoveNext( & enumerator))
+	{
+                void* current = mszStrings_Enumerator_Current( & enumerator);
+		char* printable = funs->convert(current);
+		WLog_DBG(TAG, "%s%s", prefix, printable);
+		free(printable);
 	}
 }
 
 int mszSize(BOOL widechar, void* mszStrings)
 {
-	int size = 0;
-
-	if (widechar)
+        int size = 0;
+	struct string_funs* funs = & string_funs[widechar ? 1 : 0];
+        mszStrings_Enumerator enumerator;
+        mszStrings_Enumerator_Reset(&enumerator, widechar, mszStrings);
+	while (mszStrings_Enumerator_MoveNext( & enumerator))
 	{
-		LPCWSTR current = mszStrings;
-		int length = lstrlenW(current);
-
-		while (0 < length)
-		{
-			size += sizeof(WCHAR) * (1 + length);
-			current += length;
-			length = lstrlenW(current);
-		}
-
-		size += sizeof(WCHAR);
+                size += funs->len(mszStrings_Enumerator_Current( & enumerator)) + 1;
 	}
-	else
-	{
-		LPCSTR current = mszStrings;
-		int length = lstrlenA(current);
-
-		while (0 < length)
-		{
-			size += sizeof(BYTE) * (1 + length);
-			current += length;
-			length = lstrlenA(current);
-		}
-
-		size += sizeof(BYTE);
-	}
-
-	return size;
+        return size * funs->size();
 }
+

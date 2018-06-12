@@ -160,6 +160,39 @@ The total size pointed to by cchStrings is updated.
 void mszFilterStrings(BOOL widechar, void*   mszStrings, DWORD* cchStrings,
                       wLinkedList* substrings);
 
+
+/**
+The mszStrings enumerator provides an API similar to the winpr LinkedList_Enumerator.
+
+{
+        BOOL widechar;
+        void*  mszStrings;
+        mszStrings_Enumerator enumerator;
+        struct string_funs * funs = &string_funs[widechar?1:0];
+
+        mszStrings_Enumerator_Reset(&enumerator, widechar, mszStrings);
+
+        while (LinkedList_Enumerator_MoveNext(&enumerator))
+        {
+                char *  cstring =  funs->convert(LinkedList_Enumerator_Current(&enumerator));
+                printf("%s\n", cstring);
+                free(cstring);
+        }
+}
+
+*/
+
+typedef struct
+{
+        BOOL widechar;
+        void * mszStrings;
+        void * state;
+} mszStrings_Enumerator;
+
+void mszStrings_Enumerator_Reset(mszStrings_Enumerator* enumerator, BOOL widechar, void* mszStrings);
+BOOL mszStrings_Enumerator_MoveNext(mszStrings_Enumerator*  enumerator);
+void* mszStrings_Enumerator_Current(mszStrings_Enumerator*  enumerator);
+
 /**
 mszStringsPrint(output,widechar,mszStrings)
 
@@ -171,6 +204,16 @@ mszStringsPrint prints each string in the mszStrings list on its own line.
 */
 void mszStringsPrint(FILE* output, BOOL widechar, void* mszStrings);
 
+/**
+mszStringsLog(prefix,widechar,mszStrings)
+
+prefix is a C string; it can be null.
+widechar indicates whether mszStrings contains char strings or wide char strings.
+mszStrings is a double null-terminated list of strings,  either char or wide char,  according to widechar.
+
+mszStringsLog writes each string in the mszStrings list on its own debug log line, prefixed with the prefix string.
+*/
+void mszStringsLog(const char * prefix, BOOL widechar, void* mszStrings);
 
 /**
 mszSize(widechar, mszStrings)

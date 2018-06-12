@@ -1137,6 +1137,151 @@ BOOL test_mszfilterstrings()
 
 
 
+#define mszstring_enumerator_string_count   (8)
+#define mszstring_enumerator_string_size   (16)
+static struct
+{
+	int widechar;
+        int count;
+	union
+	{
+		BYTE bytes[mszstring_enumerator_string_count][mszstring_enumerator_string_size];
+		WCHAR wchars[mszstring_enumerator_string_count][mszstring_enumerator_string_size];
+	} string;
+} mszstring_enumerator_tests[] =
+{
+	{
+		.widechar = 0,
+		.count = 3,
+		.string =  { .bytes = { "Xiring 8282", "Xiring 5555", "NeoWave 4242", ""}}
+	},
+	{
+		.widechar = 0,
+		.count = 2,
+		.string =  { .bytes = { "Xiring 5555", "NeoWave 4242", ""}}
+	},
+	{
+		.widechar = 0,
+		.count = 1,
+		.string =  { .bytes = { "Xiring 8282", ""}}
+	},
+	{
+		.widechar = 0,
+		.count = 0,
+		.string =  { .bytes = {""}}
+	},
+	{
+		.widechar = 1,
+		.count = 3,
+		.string =  {
+			.wchars = { {'X', 'i', 'r', 'i', 'n', 'g', ' ', '8', '2', '8', '2', 0},
+                                    {'X', 'i', 'r', 'i', 'n', 'g', ' ', '5', '5', '5', '5', 0},
+                                    {'N', 'e', 'o', 'W', 'a', 'v', 'e', ' ', '4', '2', '4', '2', 0},
+                                    {0}
+			}
+		},
+	},
+        {
+		.widechar = 1,
+		.count = 2,
+		.string =  {
+			.wchars = { {'X', 'i', 'r', 'i', 'n', 'g', ' ', '5', '5', '5', '5', 0},
+                                    {'N', 'e', 'o', 'W', 'a', 'v', 'e', ' ', '4', '2', '4', '2', 0},
+                                    {0}
+			}
+		},
+	},
+        {
+		.widechar = 1,
+		.count = 1,
+		.string =  {
+			.wchars = { {'N', 'e', 'o', 'W', 'a', 'v', 'e', ' ', '4', '2', '4', '2', 0},
+                                    {0}
+			}
+		},
+	},
+        {
+		.widechar = 1,
+		.count = 0,
+		.string =  {
+			.wchars = { {0}
+			}
+		},
+	}
+};
+
+
+BOOL test_mszStrings_Enumerator()
+{
+	BOOL success = TRUE;
+	int i;
+
+	for (i = 0; i < countof(mszstring_enumerator_tests); i ++)
+	{
+		int widechar = mszstring_enumerator_tests[i].widechar;
+		int count = mszstring_enumerator_tests[i].count;
+		struct string_funs* funs = & string_funs[widechar];
+		DWORD cchString = 0;
+		BYTE* mszString;
+                mszStrings_Enumerator enumerator;
+                int k;
+		int size;
+                BYTE** list;
+
+		if (widechar)
+		{
+			list = string_array_to_string_list(funs, (BYTE*)&mszstring_enumerator_tests[i].string.wchars,
+                                mszstring_enumerator_string_count,
+                                mszstring_enumerator_string_size);
+
+		}
+		else
+		{
+			list = string_array_to_string_list(funs, (BYTE*)&mszstring_enumerator_tests[i].string.bytes,
+                                mszstring_enumerator_string_count,
+                                mszstring_enumerator_string_size);
+		}
+
+                if (!list)
+                {
+                        return FALSE;
+                }
+
+                string_list_to_msz(funs, list, widechar, (LPSTR*)& mszString, & cchString);
+                size = mszSize(widechar, mszString);
+
+		if (cchString != size / funs->size())
+		{
+			FAILURE("[%d] after string_list_to_msz,  cchString = %d should be  equal to mszSize(widechar, mszString) / fun->size() = %d\n",
+			        i, cchString, size / funs->size());
+		}
+
+                mszStrings_Enumerator_Reset(&enumerator, widechar, mszString);
+                k = 0;
+                while (mszStrings_Enumerator_MoveNext( & enumerator))
+                {
+                        if (list[k]!= mszStrings_Enumerator_Current( & enumerator))
+                        {
+                                FAILURE("[%d] mszString[ %d ] != list[ %d ]\n", i, k, k);
+                        }
+                        k ++ ;
+                }
+                if (k!= count)
+                {
+			FAILURE("[%d] strings count with enumerator = %d,  should be %d\n",
+			        i, k, count);
+			printf("result:   ");
+			memdump(mszString, cchString);
+                }
+
+                free(list);
+	}
+
+	return success;
+}
+
+
+
 
 
 int TestStr(int argc, char* argv[])
@@ -1156,5 +1301,6 @@ int TestStr(int argc, char* argv[])
 	success &= test_contains();
 	success &= test_stringhassubstrings();
 	success &= test_mszfilterstrings();
+        success &= test_mszStrings_Enumerator();
 	return success ? 0 : -1;
 }

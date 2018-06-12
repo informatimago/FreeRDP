@@ -369,8 +369,7 @@ static LONG smartcard_ListReaderGroupsA_Call(SMARTCARD_DEVICE* smartcard,
 	cchGroups = SCARD_AUTOALLOCATE;
 	status = ret.ReturnCode = SCardListReaderGroupsA(operation->hContext, (LPSTR) &mszGroups,
 	                          &cchGroups);
-	printf("List of readers Groups A: \n");
-	mszStringsPrint(stdout, FALSE, mszGroups);
+	mszStringsLog("Reader Group A: ", FALSE, mszGroups);
 	ret.msz = (BYTE*) mszGroups;
 	ret.cBytes = cchGroups;
 
@@ -417,8 +416,7 @@ static LONG smartcard_ListReaderGroupsW_Call(SMARTCARD_DEVICE* smartcard,
 	cchGroups = SCARD_AUTOALLOCATE;
 	status = ret.ReturnCode = SCardListReaderGroupsW(operation->hContext, (LPWSTR) &mszGroups,
 	                          &cchGroups);
-	printf("List of readers Groups W: \n");
-	mszStringsPrint(stdout, TRUE, mszGroups);
+	mszStringsLog("Reader Group W: ", TRUE, mszGroups);
 	ret.msz = (BYTE*) mszGroups;
 	ret.cBytes = cchGroups;
 
@@ -477,30 +475,10 @@ static LONG smartcard_ListReadersA_Call(SMARTCARD_DEVICE* smartcard, SMARTCARD_O
 	cchReaders = SCARD_AUTOALLOCATE;
 	status = ret.ReturnCode = SCardListReadersA(operation->hContext, (LPCSTR) call->mszGroups,
 	                          (LPSTR) &mszReaders, &cchReaders);
-	printf("mszReaders: ");
-	memdump((void*)mszReaders, cchReaders);
-	printf("\n");
-
-	if (cchReaders != mszSize(FALSE, mszReaders))
-	{
-		printf("cchReaders = %d mszSize(mszReader) = %d\n", cchReaders, mszSize(FALSE, mszReaders));
-	}
-
-	printf("List of readers before filtering: \n");
-	mszStringsPrint(stdout, FALSE, mszReaders);
+	mszStringsLog("Readers BEFORE filtering: ", FALSE, mszReaders);
 	/* Remove the card readers that are not specified on the command line */
 	mszFilterStrings(FALSE, mszReaders, & cchReaders, smartcard->filter);
-	printf("List of readers after  filtering: \n");
-	mszStringsPrint(stdout, FALSE, mszReaders);
-	printf("mszReaders: ");
-	memdump((void*)mszReaders, cchReaders);
-	printf("\n");
-
-	if (cchReaders != mszSize(FALSE, mszReaders))
-	{
-		printf("cchReaders = %d mszSize(mszReader) = %d\n", cchReaders, mszSize(FALSE, mszReaders));
-	}
-
+	mszStringsLog("Readers AFTER  filtering: ", FALSE, mszReaders);
 	ret.msz = (BYTE*) mszReaders;
 	ret.cBytes = cchReaders;
 
@@ -563,29 +541,11 @@ static LONG smartcard_ListReadersW_Call(SMARTCARD_DEVICE* smartcard, SMARTCARD_O
 	cchReaders = SCARD_AUTOALLOCATE;
 	status = ret.ReturnCode = SCardListReadersW(operation->hContext,
 	                          (LPCWSTR) call->mszGroups, (LPWSTR) &mszReaders, &cchReaders);
-	printf("mszReaders: ");
-	memdump((void*)mszReaders, cchReaders * 2);
-	printf("\n");
 
-	if (cchReaders != mszSize(TRUE, mszReaders))
-	{
-		printf("cchReaders = %d mszSize(mszReader) = %d\n", cchReaders, mszSize(TRUE, mszReaders));
-	}
-
-	printf("List of readers before filtering: \n");
-	mszStringsPrint(stdout, TRUE, mszReaders);
+        mszStringsLog("Readers BEFORE filtering: ", TRUE, mszReaders);
 	/* Remove the card readers that are not specified on the command line */
 	mszFilterStrings(TRUE, mszReaders, & cchReaders, smartcard->filter);
-	printf("List of readers after  filtering: \n");
-	mszStringsPrint(stdout, TRUE, mszReaders);
-	printf("mszReaders: ");
-	memdump((void*)mszReaders, cchReaders * 2);
-	printf("\n");
-
-	if (cchReaders != mszSize(TRUE, mszReaders))
-	{
-		printf("cchReaders = %d mszSize(mszReader) = %d\n", cchReaders, mszSize(TRUE, mszReaders));
-	}
+	mszStringsLog("Readers AFTER  filtering: ", TRUE, mszReaders);
 
 	ret.msz = (BYTE*) mszReaders;
 	ret.cBytes = cchReaders * 2;
