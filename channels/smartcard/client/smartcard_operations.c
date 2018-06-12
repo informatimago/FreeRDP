@@ -454,16 +454,6 @@ static LONG smartcard_ListReadersA_Decode(SMARTCARD_DEVICE* smartcard,
 	return status;
 }
 
-void memdump(BYTE* mem, int size)
-{
-	int i;
-
-	for (i = 0; i < size; i ++)
-	{
-		printf("%02x ", mem[i]);
-	}
-}
-
 static LONG smartcard_ListReadersA_Call(SMARTCARD_DEVICE* smartcard, SMARTCARD_OPERATION* operation)
 {
 	LONG status;
@@ -541,12 +531,10 @@ static LONG smartcard_ListReadersW_Call(SMARTCARD_DEVICE* smartcard, SMARTCARD_O
 	cchReaders = SCARD_AUTOALLOCATE;
 	status = ret.ReturnCode = SCardListReadersW(operation->hContext,
 	                          (LPCWSTR) call->mszGroups, (LPWSTR) &mszReaders, &cchReaders);
-
-        mszStringsLog("Readers BEFORE filtering: ", TRUE, mszReaders);
+	mszStringsLog("Readers BEFORE filtering: ", TRUE, mszReaders);
 	/* Remove the card readers that are not specified on the command line */
 	mszFilterStrings(TRUE, mszReaders, & cchReaders, smartcard->filter);
 	mszStringsLog("Readers AFTER  filtering: ", TRUE, mszReaders);
-
 	ret.msz = (BYTE*) mszReaders;
 	ret.cBytes = cchReaders * 2;
 
@@ -780,7 +768,7 @@ static LONG smartcard_ConnectA_Call(SMARTCARD_DEVICE* smartcard, SMARTCARD_OPERA
 		call->Common.dwPreferredProtocols = SCARD_PROTOCOL_Tx;
 	}
 
-	/* DEBUG */ printf("SCardConnectA %s\n", (char*) call->szReader);
+	WLog_DBG(TAG, "SCardConnectA %s", call->szReader);
 	status = ret.ReturnCode = SCardConnectA(operation->hContext, (char*) call->szReader,
 	                                        call->Common.dwShareMode,
 	                                        call->Common.dwPreferredProtocols, &hCard, &ret.dwActiveProtocol);
@@ -840,9 +828,9 @@ static LONG smartcard_ConnectW_Call(SMARTCARD_DEVICE* smartcard, SMARTCARD_OPERA
 	}
 
 	{
-		/* DEBUG */  char*   name = wconvert((void*)call->szReader);
-		/* DEBUG */  printf("SCardConnectA %s\n", name);
-		/* DEBUG */  free(name);
+		char*   name = wconvert((void*)call->szReader);
+		WLog_DBG(TAG, "SCardConnectW %s", name);
+		free(name);
 	}
 
 	status = ret.ReturnCode = SCardConnectW(operation->hContext, (WCHAR*) call->szReader,

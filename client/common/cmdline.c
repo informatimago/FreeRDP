@@ -359,9 +359,6 @@ BOOL redirect_smartcard_device(rdpSettings* settings, const char* name)
 				}
 			}
 		}
-
-		/* DEBUG */ printf("%s:%d: %s() deviceFilter = ", __FILE__, __LINE__, __FUNCTION__);
-		/* DEBUG */ LinkedList_PrintStrings(smartcard->deviceFilter);
 	}
 	else
 	{
@@ -370,11 +367,6 @@ BOOL redirect_smartcard_device(rdpSettings* settings, const char* name)
 			WLog_ERR(TAG, "Couldn't add smartcard device filter record");
 			return FALSE;
 		}
-
-		/* DEBUG */ smartcard = (RDPDR_SMARTCARD*)freerdp_device_collection_find_type(settings,
-		                        RDPDR_DTYP_SMARTCARD);
-		/* DEBUG */ printf("%s:%d: %s() deviceFilter = ", __FILE__, __LINE__, __FUNCTION__);
-		/* DEBUG */ LinkedList_PrintStrings(smartcard->deviceFilter);
 	}
 
 	settings->RedirectSmartCards = TRUE;
