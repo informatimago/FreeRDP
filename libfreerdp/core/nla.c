@@ -1059,48 +1059,115 @@ static void ap_integer_decrement_le(BYTE* number, int size)
 	}
 }
 
-SECURITY_STATUS nla_encrypt_public_key_echo(rdpNla* nla)
+
+/* ==================== */
+
+/*
+
+"Encrypting" a block with kerberos (or indirectly with negociate ==> kerberos),
+involves:
+
+ - a signature,  that will increase the output block size by
+   cbSecurityTrailler vs. the input block size.
+
+ - a data block,  that is not necessarily encrypted, since the QOP
+   parameter may ask for a pure signature.
+
+ - a padding,  from 0 to cbBlockSize
+
+https://docs.microsoft.com/en-us/windows/desktop/api/sspi/ns-sspi-_secpkgcontext_sizes
+http://www.kerberos.org/software/samples/gsskrb5/gsskrb5-1011/krb5/krb5msg.c
+
+Note that the signature whose size is named cbSecurity*Trailler* is
+actually stored first in the output block by kerberos (cf. kerberos_EncryptMessage).
+
+But note also that we should not care about it,  since it should be
+considered as an opaque token to be transmitted.
+
+And finally,  notice that since we are using SecBuffers,  and that we
+don't want to extend those Windows WINPR structures with an actual
+allocated size,  the SSPI has no way to check whether there is enough
+bytes allocated to accomodate the encrypted result.
+ * * * This is a major defect of the EncryptMessage SSPI! * * *
+
+Our implementation of ntlm_EncryptMessage does store the signature in
+the separate SECBUFFER_TOKEN buffer.  This is an awkward API
+difference between kerberos_EncryptMessage and ntlm_EncryptMessage,
+and furthermore it departs from what is documented by Microsoft!
+cf. https://msdn.microsoft.com/en-us/library/windows/desktop/aa375385(v=vs.85).aspx
+The same is documented for Kerberos, NTLM and negociate!
+
+
+The conclusion is that:
+
+ 1 - there's no point in passing several buffers to EncryptMessage,
+     since it is implemented using gss_wrap which packs everything in a
+     single buffer,  and it doesn't need the temporary and internal
+     buffers that the native Windows SSPI EncryptMessage(Kerberos)
+     would require.  However,  since the native Windows SSPI
+     EncryptMessage(Kerberos) may be used when compiled on Windows, we
+     will add those non-initialized and useless buffers as
+     documented (notice that they are purely INTERNAL-to-the-SSP usage).
+
+ 2 - the passed buffer MUST be allocated with cbSecurityTrailler and
+     cbBlockSize more bytes,  but:
+
+ 3 - the data to be encrypted MUST be stored at the beginning of this
+     buffer,  specifying the input data size in cbBuffer.
+
+ 4 - we'll have to update ntlm_EncryptMessage to take the same set of
+     buffers as kerberos_EncryptMessage,  and process them just like
+     kerberos gss_wrap does it.
+
+ */
+
+
+/**
+nla_encrypt_block
+@brief Allocate the buffer, and fill it with the encrypted data.
+@param nla (input) the NLA object.
+@param buffer (output) pointer to the uninitialized buffer; it will be allocated and filled with then encrypted/signed data.
+@param clear (input) pointer to the clear text data.
+@param size (input) size of the clear text data.
+@return a SECURITY_STATUS.
+*/
+SECURITY_STATUS nla_encrypt_block(rdpNla* nla, SecBuffer* buffer, void* clear, ULONG size)
 {
-	SecBuffer Buffers[2] = { { 0 } };
-	SecBufferDesc Message;
+	/* Follow strictly https://msdn.microsoft.com/en-us/library/windows/desktop/aa375385(v=vs.85).aspx */
+	SecBuffer buffers[4] = { { 0 } };
+	SecBufferDesc message;
 	SECURITY_STATUS status;
-	ULONG public_key_length;
-	const BOOL krb = (_tcsncmp(nla->packageName, KERBEROS_SSP_NAME, ARRAYSIZE(KERBEROS_SSP_NAME)) == 0);
-	const BOOL nego = (_tcsncmp(nla->packageName, NEGO_SSP_NAME, ARRAYSIZE(NEGO_SSP_NAME)) == 0);
-	const BOOL ntlm = (_tcsncmp(nla->packageName,  NTLM_SSP_NAME, ARRAYSIZE(NTLM_SSP_NAME)) == 0);
-	public_key_length = nla->PublicKey.cbBuffer;
+	ULONG QOP = 0;
+	ULONG allocated_size = (size
+	                        + nla->ContextSizes.cbSecurityTrailer
+	                        + nla->ContextSizes.cbBlockSize);
+	buffer->BufferType = 0;
+	buffer->cbBuffer = 0;
+	buffer->pvBuffer = 0;
+	buffers[0].BufferType = SECBUFFER_STREAM_HEADER;   /* no initialization required */
+	buffers[2].BufferType = SECBUFFER_STREAM_TRAILER;  /* no initialization required */
+	buffers[3].BufferType = SECBUFFER_EMPTY;           /* no initialization required */
+	buffers[1].BufferType = SECBUFFER_DATA;
 
-	if (!sspi_SecBufferAlloc(&nla->pubKeyAuth, public_key_length + nla->ContextSizes.cbSecurityTrailer))
+	if (!sspi_SecBufferAlloc(&buffers[1], allocated_size))
+	{
 		return SEC_E_INSUFFICIENT_MEMORY;
-
-	if (krb)
-	{
-		Buffers[0].BufferType = SECBUFFER_DATA; /* TLS Public Key */
-		Buffers[0].cbBuffer = public_key_length;
-		Buffers[0].pvBuffer = nla->pubKeyAuth.pvBuffer;
-		CopyMemory(Buffers[0].pvBuffer, nla->PublicKey.pvBuffer, Buffers[0].cbBuffer);
-	}
-	else if (ntlm || nego)
-	{
-		Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
-		Buffers[0].cbBuffer = nla->ContextSizes.cbSecurityTrailer;
-		Buffers[0].pvBuffer = nla->pubKeyAuth.pvBuffer;
-		Buffers[1].BufferType = SECBUFFER_DATA; /* TLS Public Key */
-		Buffers[1].cbBuffer = public_key_length;
-		Buffers[1].pvBuffer = ((BYTE*) nla->pubKeyAuth.pvBuffer) + nla->ContextSizes.cbSecurityTrailer;
-		CopyMemory(Buffers[1].pvBuffer, nla->PublicKey.pvBuffer, Buffers[1].cbBuffer);
 	}
 
-	if (!krb && nla->server)
-	{
-		/* server echos the public key +1 */
-		ap_integer_increment_le((BYTE*) Buffers[1].pvBuffer, Buffers[1].cbBuffer);
-	}
+	CopyMemory(buffers[1].pvBuffer, clear, size);
+	buffers[1].cbBuffer = size;
+	message.cBuffers = 4;
+	message.ulVersion = SECBUFFER_VERSION;
+	message.pBuffers = buffers;
+	status = nla->table->EncryptMessage(&nla->context, QOP, &message, nla->sendSeqNum++);
 
-	Message.cBuffers = 2;
-	Message.ulVersion = SECBUFFER_VERSION;
-	Message.pBuffers = (PSecBuffer) &Buffers;
-	status = nla->table->EncryptMessage(&nla->context, 0, &Message, nla->sendSeqNum++);
+	if (allocated_size < buffers[1].cbBuffer)
+	{
+		/* This means major buffer overflow! */
+		WLog_ERR(TAG, "EncryptMessage output is bigger than allocated (%"PRIu32" > %"PRIu32")",
+		         buffers[1].cbBuffer, allocated_size);
+		exit(1);
+	}
 
 	if (status != SEC_E_OK)
 	{
@@ -1109,26 +1176,188 @@ SECURITY_STATUS nla_encrypt_public_key_echo(rdpNla* nla)
 		return status;
 	}
 
+	buffer->BufferType = buffers[1].BufferType;
+	buffer->cbBuffer = buffers[1].cbBuffer;
+	buffer->pvBuffer = buffers[1].pvBuffer;
 	return status;
 }
 
-SECURITY_STATUS nla_encrypt_public_key_hash(rdpNla* nla)
+/**
+nla_decrypt_block
+@brief Allocate the buffer, and fill it with the decrypted data.
+@param nla (input) the NLA object.
+@param buffer (output) pointer to the uninitialized buffer; it will be allocated and filled with then clear (decrypted) data.
+@param crypted (input) pointer to the encrypted data.
+@param size (input) size of the encrypted data.
+@return a SECURITY_STATUS.
+*/
+SECURITY_STATUS nla_decrypt_block(rdpNla* nla, SecBuffer* buffer, void* crypted, ULONG size)
 {
-	SecBuffer Buffers[2] = { { 0 } };
-	SecBufferDesc Message;
+	/* Follow strictly https://msdn.microsoft.com/en-us/library/windows/desktop/aa375215(v=vs.85).aspx */
+	SecBuffer buffers[1] = { { 0 } };
+	SecBufferDesc message;
+	SECURITY_STATUS status;
+	ULONG QOP = 0;
+	ULONG allocated_size = size;
+	buffer->BufferType = 0;
+	buffer->cbBuffer = 0;
+	buffer->pvBuffer = 0;
+	buffers[0].BufferType = SECBUFFER_DATA;
+
+	if (!sspi_SecBufferAlloc(&buffers[0], allocated_size))
+	{
+		return SEC_E_INSUFFICIENT_MEMORY;
+	}
+
+	CopyMemory(buffers[0].pvBuffer, crypted, size);
+	message.cBuffers = 1;
+	message.ulVersion = SECBUFFER_VERSION;
+	message.pBuffers = buffers;
+	status = nla->table->DecryptMessage(&nla->context, &message, nla->recvSeqNum++, &QOP);
+
+	if (allocated_size < buffers[0].cbBuffer)
+	{
+		/* This means major buffer overflow! */
+		WLog_ERR(TAG, "DecryptMessage output is bigger than allocated (%"PRIu32" > %"PRIu32")",
+		         buffers[0].cbBuffer, allocated_size);
+		exit(1);
+	}
+
+	if (status != SEC_E_OK)
+	{
+		WLog_ERR(TAG, "DecryptMessage failure %s [%08"PRIX32"]",
+		         GetSecurityStatusString(status), status);
+		sspi_SecBufferFree(& buffers[0]);
+		return status;
+	}
+
+	buffer->BufferType = buffers[0].BufferType;
+	buffer->pvBuffer = buffers[0].pvBuffer;
+	buffer->cbBuffer = buffers[0].cbBuffer;
+	return status;
+}
+
+SECURITY_STATUS nla_encrypt_public_key_echo(rdpNla* nla)
+{
+	const BOOL krb = (_tcsncmp(nla->packageName, KERBEROS_SSP_NAME, ARRAYSIZE(KERBEROS_SSP_NAME)) == 0);
+
+	if (!krb && nla->server)
+	{
+		/* server echos the public key +1 */
+		ap_integer_increment_le(nla->PublicKey.pvBuffer,  nla->PublicKey.cbBuffer);
+	}
+
+	return nla_encrypt_block(nla, & nla->pubKeyAuth, nla->PublicKey.pvBuffer,  nla->PublicKey.cbBuffer);
+}
+
+SECURITY_STATUS nla_validate_signature(rdpNla* nla, SecBuffer* digest, LONG payload_size)
+{
+	LONG signature_length = (LONG)digest->cbBuffer -
+	                        payload_size;  /* actually, this includes the possible padding! */
+
+	if ((signature_length < 0)
+	    || (signature_length >= ((LONG)nla->ContextSizes.cbSecurityTrailer
+	                             + (LONG)nla->ContextSizes.cbBlockSize)))
+	{
+		WLog_ERR(TAG, "unexpected digest buffer size: %"PRIu32"", digest->cbBuffer);
+		return SEC_E_INVALID_TOKEN;
+	}
+
+	if ((nla->ContextSizes.cbSecurityTrailer + payload_size) > digest->cbBuffer)
+	{
+		WLog_ERR(TAG, "unexpected digest buffer size: %"PRIu32"", digest->cbBuffer);
+		return SEC_E_INVALID_TOKEN;
+	}
+
+	return SEC_E_OK;
+}
+
+SECURITY_STATUS nla_decrypt_public_key_echo(rdpNla* nla)
+{
+	SecBuffer buffer = {0};
+	SECURITY_STATUS status = SEC_E_INVALID_TOKEN;
+	ULONG length = 0;
+	BYTE* public_key1 = NULL;
+	BYTE* public_key2 = NULL;
+	ULONG public_key_length = 0;
+	const BOOL krb = (_tcsncmp(nla->packageName, KERBEROS_SSP_NAME, ARRAYSIZE(KERBEROS_SSP_NAME)) == 0);
+	const BOOL ntlm = (_tcsncmp(nla->packageName, NTLM_SSP_NAME, ARRAYSIZE(NTLM_SSP_NAME)) == 0);
+	const BOOL nego = (_tcsncmp(nla->packageName, NEGO_SSP_NAME, ARRAYSIZE(NEGO_SSP_NAME)) == 0);
+
+	if (SEC_E_OK != nla_validate_signature(nla, & nla->pubKeyAuth, nla->PublicKey.cbBuffer))
+	{
+		return status;
+	}
+
+	length = nla->pubKeyAuth.cbBuffer;
+	status = nla_decrypt_block(nla, & buffer, nla->pubKeyAuth.pvBuffer, nla->pubKeyAuth.cbBuffer);
+
+	if (status != SEC_E_OK)
+	{
+		WLog_ERR(TAG, "DecryptMessage failure %s [%08"PRIX32"]",
+		         GetSecurityStatusString(status), status);
+		goto fail;
+	}
+
+	/* TODO: BEGIN WHAT??? */
+	if (krb)
+	{
+		public_key1 = public_key2 = (BYTE*) nla->pubKeyAuth.pvBuffer ;
+		public_key_length = length;
+	}
+	else if (ntlm || nego)
+	{
+		public_key1 = (BYTE*) nla->PublicKey.pvBuffer;
+		public_key2 = (BYTE*) buffer.pvBuffer;
+	}
+
+	if (nla->server)
+	{
+		/* server echos the public key +1 */
+		ap_integer_decrement_le(public_key2, public_key_length);
+	}
+
+	if (!public_key1 || !public_key2 || memcmp(public_key1, public_key2, public_key_length) != 0)
+	{
+		WLog_ERR(TAG, "Could not verify server's public key echo");
+		WLog_ERR(TAG, "Expected (length = %d):", public_key_length);
+		winpr_HexDump(TAG, WLOG_ERROR, public_key1, public_key_length);
+		WLog_ERR(TAG, "Actual (length = %d):", public_key_length);
+		winpr_HexDump(TAG, WLOG_ERROR, public_key2, public_key_length);
+		status = SEC_E_MESSAGE_ALTERED; /* DO NOT SEND CREDENTIALS! */
+		goto fail;
+	}
+
+	/* TODO: END WHAT??? */
+	status = SEC_E_OK;
+fail:
+	sspi_SecBufferFree(& buffer);
+	return status;
+}
+
+/**
+nla_compute_public_key_hash
+@brief Compute the public key hash.
+@param nla (input) the NLA object.
+@param digest (output) pointer to the pointer that will be allocated and filled with the public key hash.
+@param size (output) the size of the allocated digest.
+@param server(input) indicates whether to compute the server->client hash or the client->server hash.
+@return a SECURITY_STATUS.
+*/
+SECURITY_STATUS nla_compute_public_key_hash(rdpNla* nla, void** digest, ULONG* size, BOOL server)
+{
 	SECURITY_STATUS status = SEC_E_INTERNAL_ERROR;
 	WINPR_DIGEST_CTX* sha256 = NULL;
-	const BOOL krb = (_tcsncmp(nla->packageName, KERBEROS_SSP_NAME, ARRAYSIZE(KERBEROS_SSP_NAME)) == 0);
-	const ULONG auth_data_length = krb ? WINPR_SHA256_DIGEST_LENGTH :
-	                               (nla->ContextSizes.cbSecurityTrailer
-	                                + WINPR_SHA256_DIGEST_LENGTH);
-	const BYTE* hashMagic = nla->server ? ServerClientHashMagic : ClientServerHashMagic;
-	const size_t hashSize = nla->server ? sizeof(ServerClientHashMagic) : sizeof(ClientServerHashMagic);
+	const BYTE* hashMagic = server ? ServerClientHashMagic : ClientServerHashMagic;
+	const size_t hashSize = server ? sizeof(ServerClientHashMagic) : sizeof(ClientServerHashMagic);
+	(*size) = 0;
+	(*digest) = malloc(WINPR_SHA256_DIGEST_LENGTH);
 
-	if (!sspi_SecBufferAlloc(&nla->pubKeyAuth, auth_data_length))
+	if (!(*digest))
 	{
-		status = SEC_E_INSUFFICIENT_MEMORY;
-		goto out;
+		WLog_ERR(TAG, "Out of Memory, cannot allocate digest for %"PRIu32" bytes.",
+		         WINPR_SHA256_DIGEST_LENGTH);
+		return status;
 	}
 
 	/* generate SHA256 of following data: ClientServerHashMagic, Nonce, SubjectPublicKey */
@@ -1149,220 +1378,64 @@ SECURITY_STATUS nla_encrypt_public_key_hash(rdpNla* nla)
 	if (!winpr_Digest_Update(sha256, nla->PublicKey.pvBuffer, nla->PublicKey.cbBuffer))
 		goto out;
 
-	Message.pBuffers = (PSecBuffer)&Buffers;
-	Message.ulVersion = SECBUFFER_VERSION;
+	if (!winpr_Digest_Final(sha256, (*digest), WINPR_SHA256_DIGEST_LENGTH))
+		goto out;
 
-	if (krb)
+	(*size) = WINPR_SHA256_DIGEST_LENGTH;
+	return SEC_E_OK;
+out:
+	free(*digest);
+	(*digest) = 0;
+	winpr_Digest_Free(sha256);
+	return status;
+}
+
+SECURITY_STATUS nla_encrypt_public_key_hash(rdpNla* nla)
+{
+	SECURITY_STATUS status;
+	SecBuffer buffer = {0};
+	void*   digest;
+	ULONG size;
+	status = nla_compute_public_key_hash(nla, & digest, & size, nla->server);
+
+	if (status != SEC_E_OK)
 	{
-		Message.cBuffers = 1;
-		Buffers[0].BufferType = SECBUFFER_DATA; /* SHA256 hash */
-		Buffers[0].cbBuffer = WINPR_SHA256_DIGEST_LENGTH;
-		Buffers[0].pvBuffer = nla->pubKeyAuth.pvBuffer;
-
-		if (!winpr_Digest_Final(sha256, Buffers[0].pvBuffer, Buffers[0].cbBuffer))
-			goto out;
-	}
-	else
-	{
-		Message.cBuffers = 2;
-		Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
-		Buffers[0].cbBuffer = nla->ContextSizes.cbSecurityTrailer;
-		Buffers[0].pvBuffer = nla->pubKeyAuth.pvBuffer;
-		Buffers[1].BufferType = SECBUFFER_DATA; /* SHA256 hash */
-		Buffers[1].cbBuffer = WINPR_SHA256_DIGEST_LENGTH;
-		Buffers[1].pvBuffer = ((BYTE*)nla->pubKeyAuth.pvBuffer) + nla->ContextSizes.cbSecurityTrailer;
-
-		if (!winpr_Digest_Final(sha256, Buffers[1].pvBuffer, Buffers[1].cbBuffer))
-			goto out;
+		WLog_ERR(TAG, "Cannot compute the public key hash %s [0x%08"PRIX32"]",
+		         GetSecurityStatusString(status), status);
+		goto out;
 	}
 
-	/* encrypt message */
-	status = nla->table->EncryptMessage(&nla->context, 0, &Message, nla->sendSeqNum++);
+	status = nla_encrypt_block(nla, &buffer, digest, size);
 
 	if (status != SEC_E_OK)
 	{
 		WLog_ERR(TAG, "EncryptMessage status %s [0x%08"PRIX32"]",
 		         GetSecurityStatusString(status), status);
+		goto out;
 	}
 
+	sspi_SecBufferFree(&nla->pubKeyAuth);
+	nla->pubKeyAuth.BufferType = buffer.BufferType;
+	nla->pubKeyAuth.cbBuffer = buffer.cbBuffer;
+	nla->pubKeyAuth.pvBuffer = buffer.pvBuffer;
 out:
-	winpr_Digest_Free(sha256);
-	return status;
-}
-
-SECURITY_STATUS nla_decrypt_public_key_echo(rdpNla* nla)
-{
-	ULONG length;
-	BYTE* buffer = NULL;
-	ULONG pfQOP = 0;
-	BYTE* public_key1 = NULL;
-	BYTE* public_key2 = NULL;
-	ULONG public_key_length = 0;
-	int signature_length;
-	SecBuffer Buffers[2] = { { 0 } };
-	SecBufferDesc Message;
-	BOOL krb, ntlm, nego;
-	SECURITY_STATUS status = SEC_E_INVALID_TOKEN;
-
-	if (!nla)
-		goto fail;
-
-	krb = (_tcsncmp(nla->packageName, KERBEROS_SSP_NAME, ARRAYSIZE(KERBEROS_SSP_NAME)) == 0);
-	nego = (_tcsncmp(nla->packageName, NEGO_SSP_NAME, ARRAYSIZE(NEGO_SSP_NAME)) == 0);
-	ntlm = (_tcsncmp(nla->packageName,  NTLM_SSP_NAME, ARRAYSIZE(NTLM_SSP_NAME)) == 0);
-	signature_length = nla->pubKeyAuth.cbBuffer - nla->PublicKey.cbBuffer;
-
-	if ((signature_length < 0) || (signature_length > nla->ContextSizes.cbSecurityTrailer))
-	{
-		WLog_ERR(TAG, "unexpected pubKeyAuth buffer size: %"PRIu32"", nla->pubKeyAuth.cbBuffer);
-		goto fail;
-	}
-
-	if ((nla->PublicKey.cbBuffer + nla->ContextSizes.cbSecurityTrailer) != nla->pubKeyAuth.cbBuffer)
-	{
-		WLog_ERR(TAG, "unexpected pubKeyAuth buffer size: %"PRIu32"", nla->pubKeyAuth.cbBuffer);
-		goto fail;
-	}
-
-	length = nla->pubKeyAuth.cbBuffer;
-	buffer = (BYTE*) malloc(length);
-
-	if (!buffer)
-	{
-		status = SEC_E_INSUFFICIENT_MEMORY;
-		goto fail;
-	}
-
-	if (krb)
-	{
-		CopyMemory(buffer, nla->pubKeyAuth.pvBuffer, length);
-		Buffers[0].BufferType = SECBUFFER_DATA; /* Wrapped and encrypted TLS Public Key */
-		Buffers[0].cbBuffer = length;
-		Buffers[0].pvBuffer = buffer;
-		Message.cBuffers = 1;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer) &Buffers;
-	}
-	else if (ntlm || nego)
-	{
-		CopyMemory(buffer, nla->pubKeyAuth.pvBuffer, length);
-		public_key_length = nla->PublicKey.cbBuffer;
-		Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
-		Buffers[0].cbBuffer = signature_length;
-		Buffers[0].pvBuffer = buffer;
-		Buffers[1].BufferType = SECBUFFER_DATA; /* Encrypted TLS Public Key */
-		Buffers[1].cbBuffer = length - signature_length;
-		Buffers[1].pvBuffer = buffer + signature_length;
-		Message.cBuffers = 2;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer) &Buffers;
-	}
-
-	status = nla->table->DecryptMessage(&nla->context, &Message, nla->recvSeqNum++, &pfQOP);
-
-	if (status != SEC_E_OK)
-	{
-		WLog_ERR(TAG, "DecryptMessage failure %s [%08"PRIX32"]",
-		         GetSecurityStatusString(status), status);
-		goto fail;
-	}
-
-	if (krb)
-	{
-		public_key1 = public_key2 = (BYTE*) nla->pubKeyAuth.pvBuffer ;
-		public_key_length = length;
-	}
-	else if (ntlm || nego)
-	{
-		public_key1 = (BYTE*) nla->PublicKey.pvBuffer;
-		public_key2 = (BYTE*) Buffers[1].pvBuffer;
-	}
-
-	if (!nla->server)
-	{
-		/* server echos the public key +1 */
-		ap_integer_decrement_le(public_key2, public_key_length);
-	}
-
-	if (!public_key1 || !public_key2 || memcmp(public_key1, public_key2, public_key_length) != 0)
-	{
-		WLog_ERR(TAG, "Could not verify server's public key echo");
-		WLog_ERR(TAG, "Expected (length = %d):", public_key_length);
-		winpr_HexDump(TAG, WLOG_ERROR, public_key1, public_key_length);
-		WLog_ERR(TAG, "Actual (length = %d):", public_key_length);
-		winpr_HexDump(TAG, WLOG_ERROR, public_key2, public_key_length);
-		status = SEC_E_MESSAGE_ALTERED; /* DO NOT SEND CREDENTIALS! */
-		goto fail;
-	}
-
-	status = SEC_E_OK;
-fail:
-	free(buffer);
+	free(digest);
 	return status;
 }
 
 SECURITY_STATUS nla_decrypt_public_key_hash(rdpNla* nla)
 {
-	unsigned long length;
-	BYTE* buffer = NULL;
-	ULONG pfQOP = 0;
-	int signature_length;
-	SecBuffer Buffers[2] = { { 0 } };
-	SecBufferDesc Message;
-	WINPR_DIGEST_CTX* sha256 = NULL;
-	BYTE serverClientHash[WINPR_SHA256_DIGEST_LENGTH];
+	SecBuffer buffer = { 0 };
 	SECURITY_STATUS status = SEC_E_INVALID_TOKEN;
-	const BOOL krb = (_tcsncmp(nla->packageName, KERBEROS_SSP_NAME, ARRAYSIZE(KERBEROS_SSP_NAME)) == 0);
-	const BYTE* hashMagic = nla->server ? ClientServerHashMagic : ServerClientHashMagic;
-	const size_t hashSize = nla->server ? sizeof(ClientServerHashMagic) : sizeof(ServerClientHashMagic);
-	signature_length = nla->pubKeyAuth.cbBuffer - WINPR_SHA256_DIGEST_LENGTH;
+	void* digest = 0;
+	ULONG size = 0;
 
-	if ((signature_length < 0) || (signature_length > (int)nla->ContextSizes.cbSecurityTrailer))
+	if (SEC_E_OK != nla_validate_signature(nla, & nla->pubKeyAuth, WINPR_SHA256_DIGEST_LENGTH))
 	{
-		WLog_ERR(TAG, "unexpected pubKeyAuth buffer size: %"PRIu32"", nla->pubKeyAuth.cbBuffer);
-		goto fail;
+		return status;
 	}
 
-	if ((nla->ContextSizes.cbSecurityTrailer + WINPR_SHA256_DIGEST_LENGTH) != nla->pubKeyAuth.cbBuffer)
-	{
-		WLog_ERR(TAG, "unexpected pubKeyAuth buffer size: %"PRIu32"", (int)nla->pubKeyAuth.cbBuffer);
-		goto fail;
-	}
-
-	length = nla->pubKeyAuth.cbBuffer;
-	buffer = (BYTE*)malloc(length);
-
-	if (!buffer)
-	{
-		status = SEC_E_INSUFFICIENT_MEMORY;
-		goto fail;
-	}
-
-	if (krb)
-	{
-		CopyMemory(buffer, nla->pubKeyAuth.pvBuffer, length);
-		Buffers[0].BufferType = SECBUFFER_DATA; /* Encrypted Hash */
-		Buffers[0].cbBuffer = length;
-		Buffers[0].pvBuffer = buffer;
-		Message.cBuffers = 1;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer)&Buffers;
-	}
-	else
-	{
-		CopyMemory(buffer, nla->pubKeyAuth.pvBuffer, length);
-		Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
-		Buffers[0].cbBuffer = signature_length;
-		Buffers[0].pvBuffer = buffer;
-		Buffers[1].BufferType = SECBUFFER_DATA; /* Encrypted Hash */
-		Buffers[1].cbBuffer = WINPR_SHA256_DIGEST_LENGTH;
-		Buffers[1].pvBuffer = buffer + signature_length;
-		Message.cBuffers = 2;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer)&Buffers;
-	}
-
-	status = nla->table->DecryptMessage(&nla->context, &Message, nla->recvSeqNum++, &pfQOP);
+	status = nla_decrypt_block(nla, & buffer, nla->pubKeyAuth.pvBuffer, nla->pubKeyAuth.cbBuffer);
 
 	if (status != SEC_E_OK)
 	{
@@ -1371,29 +1444,17 @@ SECURITY_STATUS nla_decrypt_public_key_hash(rdpNla* nla)
 		goto fail;
 	}
 
-	/* generate SHA256 of following data: ServerClientHashMagic, Nonce, SubjectPublicKey */
-	if (!(sha256 = winpr_Digest_New()))
-		goto fail;
+	status = nla_compute_public_key_hash(nla, & digest, & size, true);
 
-	if (!winpr_Digest_Init(sha256, WINPR_MD_SHA256))
+	if (status != SEC_E_OK)
+	{
+		WLog_ERR(TAG, "Cannot compute the public key hash %s [0x%08"PRIX32"]",
+		         GetSecurityStatusString(status), status);
 		goto fail;
-
-	/* include trailing \0 from hashMagic */
-	if (!winpr_Digest_Update(sha256, hashMagic, hashSize))
-		goto fail;
-
-	if (!winpr_Digest_Update(sha256, nla->ClientNonce.pvBuffer, nla->ClientNonce.cbBuffer))
-		goto fail;
-
-	/* SubjectPublicKey */
-	if (!winpr_Digest_Update(sha256, nla->PublicKey.pvBuffer, nla->PublicKey.cbBuffer))
-		goto fail;
-
-	if (!winpr_Digest_Final(sha256, serverClientHash, sizeof(serverClientHash)))
-		goto fail;
+	}
 
 	/* verify hash */
-	if (memcmp(serverClientHash, Buffers[krb ? 0 : 1].pvBuffer, WINPR_SHA256_DIGEST_LENGTH) != 0)
+	if ((size != buffer.cbBuffer) || (memcmp(digest, buffer.pvBuffer, size) != 0))
 	{
 		WLog_ERR(TAG, "Could not verify server's hash");
 		status = SEC_E_MESSAGE_ALTERED; /* DO NOT SEND CREDENTIALS! */
@@ -1402,10 +1463,70 @@ SECURITY_STATUS nla_decrypt_public_key_hash(rdpNla* nla)
 
 	status = SEC_E_OK;
 fail:
-	free(buffer);
-	winpr_Digest_Free(sha256);
+	sspi_SecBufferFree(& buffer);
 	return status;
 }
+
+static BOOL nla_encode_ts_credentials(rdpNla* nla);
+static BOOL nla_read_ts_credentials(rdpNla* nla, PSecBuffer ts_credentials);
+
+static SECURITY_STATUS nla_encrypt_ts_credentials(rdpNla* nla)
+{
+	SecBuffer buffer = {0};
+	SECURITY_STATUS status;
+
+	if (!nla_encode_ts_credentials(nla))
+	{
+		return SEC_E_INSUFFICIENT_MEMORY;
+	}
+
+	status = nla_encrypt_block(nla, & buffer, nla->tsCredentials.pvBuffer, nla->tsCredentials.cbBuffer);
+
+	if (status != SEC_E_OK)
+	{
+		WLog_ERR(TAG, "EncryptMessage failure %s [0x%08"PRIX32"]",
+		         GetSecurityStatusString(status), status);
+		return status;
+	}
+
+	sspi_SecBufferFree(& nla->authInfo);
+	nla->authInfo.BufferType = buffer.BufferType;
+	nla->authInfo.pvBuffer = buffer.pvBuffer;
+	nla->authInfo.cbBuffer = buffer.cbBuffer;
+	return SEC_E_OK;
+}
+
+static SECURITY_STATUS nla_decrypt_ts_credentials(rdpNla* nla)
+{
+	SecBuffer buffer = { 0 };
+	SECURITY_STATUS status;
+
+	if (nla->authInfo.cbBuffer < 1)
+	{
+		WLog_ERR(TAG, "nla_decrypt_ts_credentials missing authInfo buffer");
+		return SEC_E_INVALID_TOKEN;
+	}
+
+	status = nla_decrypt_block(nla, & buffer, nla->authInfo.pvBuffer, nla->authInfo.cbBuffer);
+
+	if (status != SEC_E_OK)
+	{
+		WLog_ERR(TAG, "DecryptMessage failure %s [%08"PRIX32"]",
+		         GetSecurityStatusString(status), status);
+		return status;
+	}
+
+	if (!nla_read_ts_credentials(nla, &buffer))
+	{
+		sspi_SecBufferFree(& buffer);
+		return SEC_E_INSUFFICIENT_MEMORY;
+	}
+
+	sspi_SecBufferFree(& buffer);
+	return SEC_E_OK;
+}
+
+/* ==================== */
 
 static size_t nla_sizeof_ts_password_creds(rdpNla* nla)
 {
@@ -1429,6 +1550,7 @@ static size_t nla_sizeof_ts_credentials(rdpNla* nla)
 	size += ber_sizeof_sequence_octet_string(ber_sizeof_sequence(nla_sizeof_ts_password_creds(nla)));
 	return size;
 }
+
 
 BOOL nla_read_ts_password_creds(rdpNla* nla, wStream* s)
 {
@@ -1659,126 +1781,6 @@ static BOOL nla_encode_ts_credentials(rdpNla* nla)
 	return TRUE;
 }
 
-static SECURITY_STATUS nla_encrypt_ts_credentials(rdpNla* nla)
-{
-	SecBuffer Buffers[2] = { { 0 } };
-	SecBufferDesc Message;
-	SECURITY_STATUS status;
-	const BOOL krb = (_tcsncmp(nla->packageName, KERBEROS_SSP_NAME, ARRAYSIZE(KERBEROS_SSP_NAME)) == 0);
-	const BOOL nego = (_tcsncmp(nla->packageName, NEGO_SSP_NAME, ARRAYSIZE(NEGO_SSP_NAME)) == 0);
-	const BOOL ntlm = (_tcsncmp(nla->packageName,  NTLM_SSP_NAME, ARRAYSIZE(NTLM_SSP_NAME)) == 0);
-
-	if (!nla_encode_ts_credentials(nla))
-		return SEC_E_INSUFFICIENT_MEMORY;
-
-	if (!sspi_SecBufferAlloc(&nla->authInfo,
-	                         nla->tsCredentials.cbBuffer + nla->ContextSizes.cbSecurityTrailer))
-		return SEC_E_INSUFFICIENT_MEMORY;
-
-	if (krb)
-	{
-		Buffers[0].BufferType = SECBUFFER_DATA; /* TSCredentials */
-		Buffers[0].cbBuffer = nla->tsCredentials.cbBuffer;
-		Buffers[0].pvBuffer = nla->authInfo.pvBuffer;
-		CopyMemory(Buffers[0].pvBuffer, nla->tsCredentials.pvBuffer, Buffers[0].cbBuffer);
-		Message.cBuffers = 1;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer) &Buffers;
-	}
-	else if (ntlm || nego)
-	{
-		Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
-		Buffers[0].cbBuffer = nla->ContextSizes.cbSecurityTrailer;
-		Buffers[0].pvBuffer = nla->authInfo.pvBuffer;
-		MoveMemory(Buffers[0].pvBuffer, nla->authInfo.pvBuffer, Buffers[0].cbBuffer);
-		Buffers[1].BufferType = SECBUFFER_DATA; /* TSCredentials */
-		Buffers[1].cbBuffer = nla->tsCredentials.cbBuffer;
-		Buffers[1].pvBuffer = &((BYTE*) nla->authInfo.pvBuffer)[Buffers[0].cbBuffer];
-		CopyMemory(Buffers[1].pvBuffer, nla->tsCredentials.pvBuffer, Buffers[1].cbBuffer);
-		Message.cBuffers = 2;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer) &Buffers;
-	}
-
-	status = nla->table->EncryptMessage(&nla->context, 0, &Message, nla->sendSeqNum++);
-
-	if (status != SEC_E_OK)
-	{
-		WLog_ERR(TAG, "EncryptMessage failure %s [0x%08"PRIX32"]",
-		         GetSecurityStatusString(status), status);
-		return status;
-	}
-
-	return SEC_E_OK;
-}
-
-static SECURITY_STATUS nla_decrypt_ts_credentials(rdpNla* nla)
-{
-	int length;
-	BYTE* buffer;
-	ULONG pfQOP;
-	SecBuffer Buffers[2] = { { 0 } };
-	SecBufferDesc Message;
-	SECURITY_STATUS status;
-	const BOOL krb = (_tcsncmp(nla->packageName, KERBEROS_SSP_NAME, ARRAYSIZE(KERBEROS_SSP_NAME)) == 0);
-	const BOOL nego = (_tcsncmp(nla->packageName, NEGO_SSP_NAME, ARRAYSIZE(NEGO_SSP_NAME)) == 0);
-	const BOOL ntlm = (_tcsncmp(nla->packageName,  NTLM_SSP_NAME, ARRAYSIZE(NTLM_SSP_NAME)) == 0);
-
-	if (nla->authInfo.cbBuffer < 1)
-	{
-		WLog_ERR(TAG, "nla_decrypt_ts_credentials missing authInfo buffer");
-		return SEC_E_INVALID_TOKEN;
-	}
-
-	length = nla->authInfo.cbBuffer;
-	buffer = (BYTE*) malloc(length);
-
-	if (!buffer)
-		return SEC_E_INSUFFICIENT_MEMORY;
-
-	if (krb)
-	{
-		CopyMemory(buffer, nla->authInfo.pvBuffer, length);
-		Buffers[0].BufferType = SECBUFFER_DATA; /* Wrapped and encrypted TSCredentials */
-		Buffers[0].cbBuffer = length;
-		Buffers[0].pvBuffer = buffer;
-		Message.cBuffers = 1;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer) &Buffers;
-	}
-	else if (ntlm || nego)
-	{
-		CopyMemory(buffer, nla->authInfo.pvBuffer, length);
-		Buffers[0].BufferType = SECBUFFER_TOKEN; /* Signature */
-		Buffers[0].cbBuffer = nla->ContextSizes.cbSecurityTrailer;
-		Buffers[0].pvBuffer = buffer;
-		Buffers[1].BufferType = SECBUFFER_DATA; /* TSCredentials */
-		Buffers[1].cbBuffer = length - nla->ContextSizes.cbSecurityTrailer;
-		Buffers[1].pvBuffer = &buffer[ Buffers[0].cbBuffer ];
-		Message.cBuffers = 2;
-		Message.ulVersion = SECBUFFER_VERSION;
-		Message.pBuffers = (PSecBuffer) &Buffers;
-	}
-
-	status = nla->table->DecryptMessage(&nla->context, &Message, nla->recvSeqNum++, &pfQOP);
-
-	if (status != SEC_E_OK)
-	{
-		WLog_ERR(TAG, "DecryptMessage failure %s [0x%08"PRIX32"]",
-		         GetSecurityStatusString(status), status);
-		free(buffer);
-		return status;
-	}
-
-	if (!nla_read_ts_credentials(nla, &Buffers[1]))
-	{
-		free(buffer);
-		return SEC_E_INSUFFICIENT_MEMORY;
-	}
-
-	free(buffer);
-	return SEC_E_OK;
-}
 
 static size_t nla_sizeof_nego_token(size_t length)
 {
