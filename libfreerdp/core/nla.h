@@ -47,6 +47,16 @@ enum _NLA_STATE
 };
 typedef enum _NLA_STATE NLA_STATE;
 
+typedef struct smartcard_auth_identity smartcard_auth_identity;
+
+typedef enum
+{
+	credential_type_password = 1,
+	credential_type_smartcard = 2,
+	credential_type_remote_guard = 6,
+	credential_type_default = credential_type_password,
+} credential_type;
+
 struct rdp_nla
 {
 	BOOL server;
@@ -88,9 +98,10 @@ struct rdp_nla
 	SecBuffer PublicKey;
 	SecBuffer tsCredentials;
 	LPTSTR ServicePrincipalName;
-	SEC_WINNT_AUTH_IDENTITY* identity;
 	PSecurityFunctionTable table;
 	SecPkgContext_Sizes ContextSizes;
+	smartcard_auth_identity* identity;
+	credential_type          cred_type;
 };
 
 FREERDP_LOCAL int nla_authenticate(rdpNla* nla);
